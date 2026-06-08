@@ -1,0 +1,17 @@
+{
+  "short_name": "Weight",
+  "name": "Personal Weight Tracker",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/5087/5087847.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#4f46e5",
+  "theme_color": "#4f46e5",
+  "display": "standalone",
+  "orientation": "portrait"
+}
