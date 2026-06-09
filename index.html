@@ -15,70 +15,91 @@
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen pb-12">
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen pb-12 overflow-x-hidden">
 
     <header class="bg-indigo-600 text-white py-4 px-6 shadow-md sticky top-0 z-50 flex justify-between items-center">
         <h1 class="text-xl font-bold flex items-center gap-2">
             ⚖️ Body Tracker
         </h1>
-        <span id="pyodide-status" class="text-xs bg-indigo-800 px-2 py-1 rounded text-indigo-200">
+        <span id="pyodide-status" class="text-xs bg-indigo-800 px-2.5 py-1 rounded-full text-indigo-200 font-medium">
             Python 起動中...
         </span>
     </header>
 
+    <!-- max-w-md でスマホ幅を基準にしつつ、PCでは綺麗なカード配置を維持 -->
     <main class="max-w-md mx-auto p-4 space-y-6">
         
         <!-- プロフィール（基本設定） -->
-        <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <h2 class="text-md font-bold mb-3 text-slate-700 flex items-center gap-1">⚙️ 基本設定</h2>
-            <div class="grid grid-cols-2 gap-3">
+        <section class="bg-white p-6 rounded-[2rem] shadow-md border border-slate-100/50">
+            <h2 class="text-md font-bold mb-4 text-slate-700 flex items-center gap-2">
+                <span class="text-indigo-500">⚙️</span> 基本設定
+            </h2>
+            <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">身長 (cm)</label>
-                    <input type="number" id="profile-height" step="0.1" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500" placeholder="170.0" onchange="saveProfile()">
+                    <label class="block text-xs text-slate-400 font-medium mb-1.5">身長 (cm)</label>
+                    <input type="number" id="profile-height" step="0.1" class="w-full bg-slate-50/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" placeholder="170.0" onchange="saveProfile()">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">目標体重 (kg)</label>
-                    <input type="number" id="profile-target" step="0.1" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500" placeholder="60.0" onchange="saveProfile()">
+                    <label class="block text-xs text-slate-400 font-medium mb-1.5">目標体重 (kg)</label>
+                    <input type="number" id="profile-target" step="0.1" class="w-full bg-slate-50/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" placeholder="60.0" onchange="saveProfile()">
                 </div>
             </div>
         </section>
 
-        <!-- 本日の入力フォーム -->
-        <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <h2 class="text-md font-bold mb-3 text-slate-700 flex items-center gap-1">📝 今日の記録</h2>
-            <form id="record-form" class="space-y-3">
-                <div class="grid grid-cols-2 gap-3">
+        <!-- 本日の入力フォーム（PC時はバッジを右側に浮かせ、スマホ時はタイトルの横に綺麗にインライン格納） -->
+        <section class="bg-white p-6 rounded-[2rem] shadow-md border border-slate-100/50 relative">
+            
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-md font-bold text-slate-700 flex items-center gap-2">
+                    <span class="text-indigo-500">📝</span> 今日の記録
+                </h2>
+                
+                <!-- スマホ時はここ（タイトルの横）に表示される -->
+                <div class="md:hidden text-[10px] text-slate-500 bg-slate-50 border border-slate-200/80 px-2 py-1 rounded-lg font-medium shadow-sm">
+                    この端末に保存済み
+                </div>
+            </div>
+
+            <!-- PC画面の時だけ、カードの右側に浮かび上がるフローティングバッジ（スマホ時は hidden で非表示） -->
+            <div class="hidden md:block absolute -right-40 top-1/2 -translate-y-1/2 text-xs text-slate-600 bg-white border border-slate-200/80 px-3 py-2 rounded-xl font-medium shadow-md whitespace-nowrap">
+                この PC に保存済み
+            </div>
+
+            <form id="record-form" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs text-slate-500 mb-1">体重 (kg)</label>
-                        <input type="number" id="input-weight" step="0.1" required class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-md font-semibold focus:outline-indigo-500" placeholder="65.0">
+                        <label class="block text-xs text-slate-400 font-medium mb-1.5">体重 (kg)</label>
+                        <input type="number" id="input-weight" step="0.1" required class="w-full bg-slate-50/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" placeholder="65.0">
                     </div>
                     <div>
-                        <label class="block text-xs text-slate-500 mb-1">ウエスト (cm)</label>
-                        <input type="number" id="input-waist" step="0.1" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-md font-semibold focus:outline-indigo-500" placeholder="80.0">
+                        <label class="block text-xs text-slate-400 font-medium mb-1.5">ウエスト (cm)</label>
+                        <input type="number" id="input-waist" step="0.1" class="w-full bg-slate-50/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" placeholder="80.0">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">日付</label>
-                    <input type="date" id="input-date" required class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-indigo-500">
+                    <label class="block text-xs text-slate-400 font-medium mb-1.5">日付</label>
+                    <input type="date" id="input-date" required class="w-full bg-slate-50/50 border border-slate-200/60 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all">
                 </div>
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl transition shadow-sm">
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-2xl transition-all shadow-md active:scale-[0.98]">
                     記録を保存する
                 </button>
             </form>
         </section>
 
         <!-- 推移グラフ (期間切り替え付き) -->
-        <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <div class="flex flex-col gap-2 mb-3">
-                <h2 class="text-md font-bold text-slate-700">📈 体組成推移</h2>
-                <!-- 期間切り替えボタン（スマホでもはみ出ないように横スクロール対応） -->
-                <div class="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
-                    <button type="button" onclick="changePeriod(7)" id="btn-7" class="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-semibold whitespace-nowrap">7日</button>
-                    <button type="button" onclick="changePeriod(30)" id="btn-30" class="px-2.5 py-1 text-xs rounded-lg bg-indigo-600 text-white font-semibold whitespace-nowrap">30日</button>
-                    <button type="button" onclick="changePeriod(60)" id="btn-60" class="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-semibold whitespace-nowrap">60日</button>
-                    <button type="button" onclick="changePeriod(90)" id="btn-90" class="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-semibold whitespace-nowrap">90日</button>
-                    <button type="button" onclick="changePeriod(180)" id="btn-180" class="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-semibold whitespace-nowrap">180日</button>
-                    <button type="button" onclick="changePeriod(365)" id="btn-365" class="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-semibold whitespace-nowrap">365日</button>
+        <section class="bg-white p-6 rounded-[2rem] shadow-md border border-slate-100/50">
+            <div class="flex flex-col gap-3 mb-4">
+                <h2 class="text-md font-bold text-slate-700 flex items-center gap-2">
+                    <span class="text-indigo-500">📈</span> 体組成推移
+                </h2>
+                <!-- 期間切り替えボタン（横スクロール時のガタつき防止） -->
+                <div class="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                    <button type="button" onclick="changePeriod(7)" id="btn-7" class="px-3 py-1.5 text-xs rounded-lg bg-slate-100 text-slate-600 font-bold whitespace-nowrap transition-all">7日</button>
+                    <button type="button" onclick="changePeriod(30)" id="btn-30" class="px-3 py-1.5 text-xs rounded-lg bg-indigo-600 text-white font-bold whitespace-nowrap transition-all">30日</button>
+                    <button type="button" onclick="changePeriod(60)" id="btn-60" class="px-3 py-1.5 text-xs rounded-lg bg-slate-100 text-slate-600 font-bold whitespace-nowrap transition-all">60日</button>
+                    <button type="button" onclick="changePeriod(90)" id="btn-90" class="px-3 py-1.5 text-xs rounded-lg bg-slate-100 text-slate-600 font-bold whitespace-nowrap transition-all">90日</button>
+                    <button type="button" onclick="changePeriod(180)" id="btn-180" class="px-3 py-1.5 text-xs rounded-lg bg-slate-100 text-slate-600 font-bold whitespace-nowrap transition-all">180日</button>
+                    <button type="button" onclick="changePeriod(365)" id="btn-365" class="px-3 py-1.5 text-xs rounded-lg bg-slate-100 text-slate-600 font-bold whitespace-nowrap transition-all">365日</button>
                 </div>
             </div>
             <div class="w-full h-56">
@@ -87,49 +108,55 @@
         </section>
 
         <!-- Pythonによる高度な自己分析レポート -->
-        <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <h2 class="text-md font-bold mb-3 text-slate-700 flex items-center gap-1">🤖 Python AI分析</h2>
+        <section class="bg-white p-6 rounded-[2rem] shadow-md border border-slate-100/50">
+            <h2 class="text-md font-bold mb-3 text-slate-700 flex items-center gap-2">
+                <span class="text-indigo-500">🤖</span> Python AI分析
+            </h2>
             <div id="analysis-report" class="text-sm space-y-2 text-slate-600">
-                <p class="animate-pulse">Pythonによる分析を待機中...</p>
+                <p class="animate-pulse text-xs text-slate-400">Pythonによる分析を待機中...</p>
             </div>
         </section>
 
         <!-- 端末間のデータ引越しセクション -->
-        <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <h2 class="text-md font-bold mb-1 text-slate-700 flex items-center gap-1">📲 端末間のデータ引越し（通信ログゼロ）</h2>
-            <p class="text-xs text-slate-500 mb-3">
-                この端末に保存されている全てのデータをQRコードに変換します。新しい端末（スマホやPC）のカメラでこのQRコードを読み取るだけで、インターネット通信を一切行わずにデータを一瞬で引き継ぐことができます。
+        <section class="bg-white p-6 rounded-[2rem] shadow-md border border-slate-100/50">
+            <h2 class="text-md font-bold mb-1 text-slate-700 flex items-center gap-2">
+                <span class="text-indigo-500">📲</span> データ引越し（通信ログゼロ）
+            </h2>
+            <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+                全データをQRコード化します。別端末のカメラで読み取るだけで、ネットワークログを一切残さずにデータ移行が可能です。
             </p>
             <div class="space-y-3">
-                <button type="button" onclick="generateQRCode()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition shadow-sm">
+                <button type="button" onclick="generateQRCode()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-3 px-4 rounded-2xl transition-all shadow-md active:scale-[0.98]">
                     🔍 引越し用QRコードを生成する
                 </button>
                 
-                <div id="qr-container" class="hidden flex flex-col items-center p-4 bg-slate-100 rounded-xl border border-slate-200 space-y-3">
-                    <div id="qrcode" class="bg-white p-3 rounded-lg shadow-sm"></div>
-                    <p class="text-center text-xs text-slate-600 font-semibold leading-relaxed">
+                <div id="qr-container" class="hidden flex flex-col items-center p-4 bg-slate-50 rounded-2xl border border-slate-200/60 space-y-3">
+                    <div id="qrcode" class="bg-white p-4 rounded-xl shadow-sm border border-slate-100"></div>
+                    <p class="text-center text-xs text-slate-500 font-bold leading-relaxed">
                         【移行方法】<br>
-                        移転先スマートフォンの標準カメラ等で上記QRコードをスキャンし、表示されたURLを開いてください。
+                        移転先の標準カメラで上記QRコードをスキャンし、表示されたURLを開いてください。
                     </p>
-                    <button type="button" onclick="hideQR()" class="text-xs text-slate-500 underline">QRコードを閉じる</button>
+                    <button type="button" onclick="hideQR()" class="text-xs text-slate-400 underline hover:text-slate-600">QRコードを閉じる</button>
                 </div>
             </div>
         </section>
 
         <!-- 過去の履歴 -->
-        <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <div class="flex justify-between items-center mb-3">
-                <h2 class="text-md font-bold text-slate-700">📋 過去の履歴</h2>
-                <button type="button" onclick="clearAllData()" class="text-xs text-rose-500 hover:underline">データを全消去</button>
+        <section class="bg-white p-6 rounded-[2rem] shadow-md border border-slate-100/50">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-md font-bold text-slate-700 flex items-center gap-2">
+                    <span class="text-indigo-500">📋</span> 過去の履歴
+                </h2>
+                <button type="button" onclick="clearAllData()" class="text-xs text-rose-500 hover:underline font-semibold">データを全消去</button>
             </div>
-            <div class="max-h-60 overflow-y-auto border border-slate-100 rounded-xl">
+            <div class="max-h-60 overflow-y-auto border border-slate-100 rounded-2xl">
                 <table class="w-full text-sm text-left text-slate-500">
                     <thead class="text-xs text-slate-700 uppercase bg-slate-50 sticky top-0">
                         <tr>
-                            <th class="px-3 py-2">日付</th>
-                            <th class="px-3 py-2">体重</th>
-                            <th class="px-3 py-2">腹囲</th>
-                            <th class="px-3 py-2">操作</th>
+                            <th class="px-4 py-3">日付</th>
+                            <th class="px-4 py-3">体重</th>
+                            <th class="px-4 py-3">腹囲</th>
+                            <th class="px-4 py-3">操作</th>
                         </tr>
                     </thead>
                     <tbody id="history-table">
@@ -144,7 +171,7 @@
     <script>
         let pyodideInstance = null;
         let chartInstance = null;
-        let selectedPeriod = 30; // グラフのデフォルト表示日数
+        let selectedPeriod = 30;
 
         window.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('input-date').valueAsDate = new Date();
@@ -154,7 +181,6 @@
             await initPyodide();
         });
 
-        // URLパラメータのチェックとインポート
         function checkURLAndImport() {
             const urlParams = new URLSearchParams(window.location.search);
             const importData = urlParams.get('data');
@@ -174,7 +200,7 @@
                         }
                     }
                 } catch (e) {
-                    alert("QRデータのデコードに失敗しました。データが欠損している可能性があります。");
+                    alert("QRデータのデコードに失敗しました。");
                     console.error(e);
                 }
 
@@ -183,7 +209,6 @@
             }
         }
 
-        // 引越し用QRコード生成
         function generateQRCode() {
             const records = localStorage.getItem('wt_records') || '[]';
             const profile = localStorage.getItem('wt_profile') || '{}';
@@ -223,24 +248,17 @@
             document.getElementById('qr-container').classList.add('hidden');
         }
 
-        // 表示期間の切り替え処理
         function changePeriod(days) {
             selectedPeriod = days;
-            
-            // 各種切り替えボタンの見た目の調整
             const periods = [7, 30, 60, 90, 180, 365];
             periods.forEach(p => {
                 const btn = document.getElementById(`btn-${p}`);
                 if (p === days) {
-                    // 選択状態：インディゴ色
-                    btn.className = "px-2.5 py-1 text-xs rounded-lg bg-indigo-600 text-white font-semibold whitespace-nowrap";
+                    btn.className = "px-3 py-1.5 text-xs rounded-lg bg-indigo-600 text-white font-bold whitespace-nowrap transition-all";
                 } else {
-                    // 未選択状態：プレーン
-                    btn.className = "px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-semibold whitespace-nowrap hover:bg-slate-200";
+                    btn.className = "px-3 py-1.5 text-xs rounded-lg bg-slate-100 text-slate-600 font-bold whitespace-nowrap hover:bg-slate-200 transition-all";
                 }
             });
-
-            // グラフを再描画
             renderTableAndChart();
         }
 
@@ -320,24 +338,22 @@
         function renderTableAndChart() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             
-            // 履歴テーブルの描画
             const tableBody = document.getElementById('history-table');
             tableBody.innerHTML = '';
             [...records].reverse().forEach(r => {
                 const tr = document.createElement('tr');
-                tr.className = "border-b border-slate-100 hover:bg-slate-50";
+                tr.className = "border-b border-slate-100 hover:bg-slate-50/80";
                 tr.innerHTML = `
-                    <td class="px-3 py-2 font-medium text-slate-900">${r.date}</td>
-                    <td class="px-3 py-2">${r.weight} kg</td>
-                    <td class="px-3 py-2">${r.waist ? r.waist + ' cm' : '-'}</td>
-                    <td class="px-3 py-2">
-                        <button type="button" onclick="deleteRecord('${r.date}')" class="text-rose-500 hover:underline">削除</button>
+                    <td class="px-4 py-3 font-semibold text-slate-700">${r.date}</td>
+                    <td class="px-4 py-3 font-medium text-slate-800">${r.weight} kg</td>
+                    <td class="px-4 py-3 font-medium text-slate-800">${r.waist ? r.waist + ' cm' : '-'}</td>
+                    <td class="px-4 py-3">
+                        <button type="button" onclick="deleteRecord('${r.date}')" class="text-rose-500 hover:underline font-semibold">削除</button>
                     </td>
                 `;
                 tableBody.appendChild(tr);
             });
 
-            // 選択された表示期間（selectedPeriod）でデータを切り出す
             const recentRecords = records.slice(-selectedPeriod);
             const labels = recentRecords.map(r => r.date.substring(5));
             const weights = recentRecords.map(r => r.weight);
@@ -348,6 +364,8 @@
             }
 
             const ctx = document.getElementById('weightChart').getContext('2d');
+            
+            // 2軸グラフの設定 (体重:左軸, ウエスト:右軸)
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -358,6 +376,7 @@
                             data: weights,
                             borderColor: 'rgb(79, 70, 229)',
                             backgroundColor: 'rgba(79, 70, 229, 0.05)',
+                            yAxisID: 'y-weight', // 左軸を参照
                             tension: 0.3,
                             fill: true
                         },
@@ -366,6 +385,7 @@
                             data: waists,
                             borderColor: 'rgb(16, 185, 129)',
                             backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                            yAxisID: 'y-waist', // 右軸を参照
                             tension: 0.3,
                             fill: true
                         }
@@ -375,9 +395,17 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        y: {
+                        'y-weight': {
                             type: 'linear',
-                            title: { display: true, text: '測定数値' }
+                            position: 'left',
+                            title: { display: true, text: '体重 (kg)', color: 'rgb(79, 70, 229)', font: { weight: 'bold' } },
+                            grid: { drawOnChartArea: true }
+                        },
+                        'y-waist': {
+                            type: 'linear',
+                            position: 'right',
+                            title: { display: true, text: 'ウエスト (cm)', color: 'rgb(16, 185, 129)', font: { weight: 'bold' } },
+                            grid: { drawOnChartArea: false } // 目盛り線が重なって汚くなるのを防ぐため、右軸のグリッド線は非表示
                         }
                     }
                 }
@@ -400,13 +428,6 @@
                 console.error("Pythonの解析実行に失敗:", error);
                 document.getElementById('analysis-report').innerHTML = `<p class="text-rose-500">分析エンジンの実行中にエラーが発生しました。</p>`;
             }
-        }
-    </script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-            .then(reg => console.log('Service Worker Registered!', reg))
-            .catch(err => console.error('Service Worker Registration Failed', err));
         }
     </script>
 </body>
