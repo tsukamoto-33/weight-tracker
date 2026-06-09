@@ -1,4 +1,4 @@
-const CACHE_NAME = 'weight-tracker-v1'; // バージョンアップ時はここをインクリメント（例: v2）
+const CACHE_NAME = 'weight-tracker-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -10,10 +10,10 @@ const ASSETS = [
   'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.asm.js',
   'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide-core.capnp',
   'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.asm.wasm',
-  'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/packages.json'
+  'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/packages.json',
+  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
 ];
 
-// インストール時にキャッシュを生成
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -24,7 +24,6 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// 古いキャッシュをクリア
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -41,7 +40,6 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// オフライン時のリクエスト処理（キャッシュ優先）
 self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
