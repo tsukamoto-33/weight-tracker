@@ -9,9 +9,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/5087/5087847.png">
     
+    <!-- CDNリソースの読み込み -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen pb-12">
 
@@ -41,7 +43,7 @@
             </div>
         </section>
 
-        <!-- 本日の入力フォーム（体重・ウエストの2項目のみに簡素化） -->
+        <!-- 本日の入力フォーム -->
         <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
             <h2 class="text-md font-bold mb-3 text-slate-700 flex items-center gap-1">📝 今日の記録</h2>
             <form id="record-form" class="space-y-3">
@@ -65,9 +67,20 @@
             </form>
         </section>
 
-        <!-- 推移グラフ（2軸表示を廃止し、左側1軸に整理） -->
+        <!-- 推移グラフ (期間切り替え付き) -->
         <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
-            <h2 class="text-md font-bold mb-3 text-slate-700">📈 体組成推移（直近30日）</h2>
+            <div class="flex flex-col gap-2 mb-3">
+                <h2 class="text-md font-bold text-slate-700">📈 体組成推移</h2>
+                <!-- 期間切り替えボタン（スマホでもはみ出ないように横スクロール対応） -->
+                <div class="flex gap-1 overflow-x-auto pb-1 no-scrollbar">
+                    <button type="button" onclick="changePeriod(7)" id="btn-7" class="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-semibold whitespace-nowrap">7日</button>
+                    <button type="button" onclick="changePeriod(30)" id="btn-30" class="px-2.5 py-1 text-xs rounded-lg bg-indigo-600 text-white font-semibold whitespace-nowrap">30日</button>
+                    <button type="button" onclick="changePeriod(60)" id="btn-60" class="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-semibold whitespace-nowrap">60日</button>
+                    <button type="button" onclick="changePeriod(90)" id="btn-90" class="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-semibold whitespace-nowrap">90日</button>
+                    <button type="button" onclick="changePeriod(180)" id="btn-180" class="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-semibold whitespace-nowrap">180日</button>
+                    <button type="button" onclick="changePeriod(365)" id="btn-365" class="px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-semibold whitespace-nowrap">365日</button>
+                </div>
+            </div>
             <div class="w-full h-56">
                 <canvas id="weightChart"></canvas>
             </div>
@@ -81,11 +94,33 @@
             </div>
         </section>
 
-        <!-- 履歴データ（体脂肪を削り、4列に再構成） -->
+        <!-- 端末間のデータ引越しセクション -->
+        <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+            <h2 class="text-md font-bold mb-1 text-slate-700 flex items-center gap-1">📲 端末間のデータ引越し（通信ログゼロ）</h2>
+            <p class="text-xs text-slate-500 mb-3">
+                この端末に保存されている全てのデータをQRコードに変換します。新しい端末（スマホやPC）のカメラでこのQRコードを読み取るだけで、インターネット通信を一切行わずにデータを一瞬で引き継ぐことができます。
+            </p>
+            <div class="space-y-3">
+                <button type="button" onclick="generateQRCode()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold py-2.5 px-4 rounded-xl transition shadow-sm">
+                    🔍 引越し用QRコードを生成する
+                </button>
+                
+                <div id="qr-container" class="hidden flex flex-col items-center p-4 bg-slate-100 rounded-xl border border-slate-200 space-y-3">
+                    <div id="qrcode" class="bg-white p-3 rounded-lg shadow-sm"></div>
+                    <p class="text-center text-xs text-slate-600 font-semibold leading-relaxed">
+                        【移行方法】<br>
+                        移転先スマートフォンの標準カメラ等で上記QRコードをスキャンし、表示されたURLを開いてください。
+                    </p>
+                    <button type="button" onclick="hideQR()" class="text-xs text-slate-500 underline">QRコードを閉じる</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 過去の履歴 -->
         <section class="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
             <div class="flex justify-between items-center mb-3">
                 <h2 class="text-md font-bold text-slate-700">📋 過去の履歴</h2>
-                <button onclick="clearAllData()" class="text-xs text-rose-500 hover:underline">データを全消去</button>
+                <button type="button" onclick="clearAllData()" class="text-xs text-rose-500 hover:underline">データを全消去</button>
             </div>
             <div class="max-h-60 overflow-y-auto border border-slate-100 rounded-xl">
                 <table class="w-full text-sm text-left text-slate-500">
@@ -109,13 +144,105 @@
     <script>
         let pyodideInstance = null;
         let chartInstance = null;
+        let selectedPeriod = 30; // グラフのデフォルト表示日数
 
         window.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('input-date').valueAsDate = new Date();
+            checkURLAndImport();
             loadProfile();
             renderTableAndChart();
             await initPyodide();
         });
+
+        // URLパラメータのチェックとインポート
+        function checkURLAndImport() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const importData = urlParams.get('data');
+
+            if (importData) {
+                try {
+                    const decodedData = decodeURIComponent(atob(importData));
+                    const payload = JSON.parse(decodedData);
+
+                    if (payload.records && Array.isArray(payload.records)) {
+                        if (confirm(`【データ引き継ぎの検出】\nQRコードから読み取ったデータ（履歴: ${payload.records.length}件）を、この端末に引き継ぎますか？\n（※既存のデータはすべて上書きされます）`)) {
+                            localStorage.setItem('wt_records', JSON.stringify(payload.records));
+                            if (payload.profile) {
+                                localStorage.setItem('wt_profile', JSON.stringify(payload.profile));
+                            }
+                            alert("引き継ぎが成功しました！過去の履歴が復元されました。");
+                        }
+                    }
+                } catch (e) {
+                    alert("QRデータのデコードに失敗しました。データが欠損している可能性があります。");
+                    console.error(e);
+                }
+
+                const cleanURL = window.location.protocol + "//" + window.location.host + window.location.pathname;
+                window.history.replaceState({ path: cleanURL }, '', cleanURL);
+            }
+        }
+
+        // 引越し用QRコード生成
+        function generateQRCode() {
+            const records = localStorage.getItem('wt_records') || '[]';
+            const profile = localStorage.getItem('wt_profile') || '{}';
+
+            const payload = {
+                records: JSON.parse(records),
+                profile: JSON.parse(profile)
+            };
+
+            try {
+                const jsonStr = JSON.stringify(payload);
+                const base64Data = btoa(encodeURIComponent(jsonStr));
+                const shareURL = window.location.protocol + "//" + window.location.host + window.location.pathname + "?data=" + base64Data;
+
+                const qrDiv = document.getElementById('qrcode');
+                qrDiv.innerHTML = "";
+                document.getElementById('qr-container').classList.remove('hidden');
+
+                new QRCode(qrDiv, {
+                    text: shareURL,
+                    width: 256,
+                    height: 256,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.L
+                });
+
+                document.getElementById('qr-container').scrollIntoView({ behavior: 'smooth' });
+
+            } catch (error) {
+                alert("データの容量が大きすぎるためQRコードに変換できませんでした。");
+                console.error(error);
+            }
+        }
+
+        function hideQR() {
+            document.getElementById('qr-container').classList.add('hidden');
+        }
+
+        // 表示期間の切り替え処理
+        function changePeriod(days) {
+            selectedPeriod = days;
+            
+            // 各種切り替えボタンの見た目の調整
+            const periods = [7, 30, 60, 90, 180, 365];
+            periods.forEach(p => {
+                const btn = document.getElementById(`btn-${p}`);
+                if (p === days) {
+                    // 選択状態：インディゴ色
+                    btn.className = "px-2.5 py-1 text-xs rounded-lg bg-indigo-600 text-white font-semibold whitespace-nowrap";
+                } else {
+                    // 未選択状態：プレーン
+                    btn.className = "px-2.5 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-semibold whitespace-nowrap hover:bg-slate-200";
+                }
+            });
+
+            // グラフを再描画
+            renderTableAndChart();
+        }
 
         async function initPyodide() {
             try {
@@ -135,7 +262,6 @@
             }
         }
 
-        // プロフィールのローカル保存
         function saveProfile() {
             const height = document.getElementById('profile-height').value;
             const target = document.getElementById('profile-target').value;
@@ -149,7 +275,6 @@
             if (profile.target) document.getElementById('profile-target').value = profile.target;
         }
 
-        // データの登録
         document.getElementById('record-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const date = document.getElementById('input-date').value;
@@ -162,10 +287,8 @@
             
             const existingIndex = records.findIndex(r => r.date === date);
             if (existingIndex > -1) {
-                // 上書き
                 records[existingIndex] = { date, weight, waist };
             } else {
-                // 新規
                 records.push({ date, weight, waist });
             }
 
@@ -194,11 +317,10 @@
             runPythonAnalysis();
         }
 
-        // グラフとテーブル描画
         function renderTableAndChart() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             
-            // テーブル描画
+            // 履歴テーブルの描画
             const tableBody = document.getElementById('history-table');
             tableBody.innerHTML = '';
             [...records].reverse().forEach(r => {
@@ -209,14 +331,14 @@
                     <td class="px-3 py-2">${r.weight} kg</td>
                     <td class="px-3 py-2">${r.waist ? r.waist + ' cm' : '-'}</td>
                     <td class="px-3 py-2">
-                        <button onclick="deleteRecord('${r.date}')" class="text-rose-500 hover:underline">削除</button>
+                        <button type="button" onclick="deleteRecord('${r.date}')" class="text-rose-500 hover:underline">削除</button>
                     </td>
                 `;
                 tableBody.appendChild(tr);
             });
 
-            // グラフ描画（直近30日間）
-            const recentRecords = records.slice(-30);
+            // 選択された表示期間（selectedPeriod）でデータを切り出す
+            const recentRecords = records.slice(-selectedPeriod);
             const labels = recentRecords.map(r => r.date.substring(5));
             const weights = recentRecords.map(r => r.weight);
             const waists = recentRecords.map(r => r.waist);
@@ -242,7 +364,7 @@
                         {
                             label: 'ウエスト (cm)',
                             data: waists,
-                            borderColor: 'rgb(16, 185, 129)', // エメラルドグリーン
+                            borderColor: 'rgb(16, 185, 129)',
                             backgroundColor: 'rgba(16, 185, 129, 0.05)',
                             tension: 0.3,
                             fill: true
