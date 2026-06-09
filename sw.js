@@ -1,10 +1,9 @@
-const CACHE_NAME = 'weight-tracker-v7';
+const CACHE_NAME = 'weight-tracker-v8';
 const ASSETS = [
   './',
   './index.html',
   './main.py',
   './manifest.json',
-  'https://cdn.tailwindcss.com',
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js',
   'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.asm.js',
