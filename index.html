@@ -7,7 +7,7 @@
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/5087/5087847.png">
+    <link class="favicon" rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/5087/5087847.png">
     
     <!-- CDNリソースの読み込み -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -652,12 +652,12 @@
 
             // 2. 期間（スパン）の自動集計・丸め処理
             if (selectedPeriod === 7 || selectedPeriod === 30) {
-                // 通常表示（1日ごとの値をそのまま採用）
+                // 通常表示
                 chartLabels = recentRecords.map(r => r.date.substring(5)); // MM-DD 形式
                 chartWeights = recentRecords.map(r => r.weight);
                 chartWaists = recentRecords.map(r => r.waist);
             } else {
-                // 長期スパン：60日/90日は7日平均、180日/365日は30日平均
+                // 長期スパン
                 const spanDays = (selectedPeriod === 60 || selectedPeriod === 90) ? 7 : 30;
                 const groups = {};
 
@@ -665,7 +665,7 @@
                     const rDate = new Date(r.date);
                     const diffTime = now - rDate;
                     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                    const groupId = Math.floor(diffDays / spanDays); // 経過日数に基づきグループ分け
+                    const groupId = Math.floor(diffDays / spanDays);
 
                     if (!groups[groupId]) {
                         groups[groupId] = { weights: [], waists: [], dates: [] };
@@ -675,7 +675,6 @@
                     groups[groupId].dates.push(rDate);
                 });
 
-                // グループIDを古い順（数字が大きい方から小さい方）に並び替えてプロット
                 const sortedGroupIds = Object.keys(groups).map(Number).sort((a, b) => b - a);
 
                 sortedGroupIds.forEach(gid => {
@@ -687,8 +686,6 @@
                         const minD = new Date(Math.min(...g.dates));
                         const maxD = new Date(Math.max(...g.dates));
                         const formatD = (d) => `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
-                        
-                        // 期間を「06/01-06/07」のような範囲ラベルにする
                         const label = minD.getTime() === maxD.getTime() ? formatD(minD) : `${formatD(minD)}-${formatD(maxD)}`;
 
                         chartLabels.push(label);
@@ -702,31 +699,43 @@
                 chartInstance.destroy();
             }
 
+            // 3. 【高度な修正】体重とウエストの最小値・最大値をリアルタイム算出（0起点排除）
+            const validWeights = chartWeights.filter(v => v !== null && v !== undefined && !isNaN(v));
+            const validWaists = chartWaists.filter(v => v !== null && v !== undefined && !isNaN(v));
+
+            // 安全な上限・下限値の導出 (データがないときはデフォルト値)
+            const weightMin = validWeights.length > 0 ? Math.floor(Math.min(...validWeights) - 1.5) : 55;
+            const weightMax = validWeights.length > 0 ? Math.ceil(Math.max(...validWeights) + 1.5) : 75;
+
+            const waistMin = validWaists.length > 0 ? Math.floor(Math.min(...validWaists) - 2.5) : 70;
+            const waistMax = validWaists.length > 0 ? Math.ceil(Math.max(...validWaists) + 2.5) : 90;
+
             const ctx = document.getElementById('weightChart').getContext('2d');
             
-            // 3. 2軸グラフの設定 (体重: 0.5kg補助線付き棒グラフ / ウエスト: 直線折れ線)
             chartInstance = new Chart(ctx, {
-                type: 'bar', // 全体タイプをbarに設定（混在グラフ用）
+                type: 'bar',
                 data: {
                     labels: chartLabels,
                     datasets: [
                         {
-                            type: 'bar', // 体重は棒グラフ
+                            type: 'bar',
                             label: '体重 (kg)',
                             data: chartWeights,
                             borderColor: 'rgb(79, 70, 229)',
                             backgroundColor: 'rgba(79, 70, 229, 0.65)',
                             yAxisID: 'y-weight',
-                            barPercentage: 0.55 // 太さを程よく調整
+                            // 棒の幅が広がりすぎないように制限し、全データを隙間なく並べる
+                            barThickness: 'flex', 
+                            maxBarThickness: 14, 
                         },
                         {
-                            type: 'line', // ウエストは折れ線グラフ
+                            type: 'line',
                             label: 'ウエスト (cm)',
                             data: chartWaists,
                             borderColor: 'rgb(16, 185, 129)',
                             backgroundColor: 'transparent',
                             yAxisID: 'y-waist',
-                            tension: 0, // 0にすることで曲線を「直線」に変更
+                            tension: 0, // 完全に直線で繋ぐ
                             fill: false
                         }
                     ]
@@ -741,17 +750,25 @@
                             title: { display: true, text: '体重 (kg)', color: 'rgb(79, 70, 229)', font: { weight: 'bold' } },
                             grid: { 
                                 drawOnChartArea: true,
-                                color: 'rgba(0, 0, 0, 0.05)' // 補助線用の極薄グレー
+                                color: 'rgba(0, 0, 0, 0.05)'
                             },
+                            // 0起点を排除し、データの上下幅にクローズアップする
+                            beginAtZero: false,
+                            min: weightMin,
+                            max: weightMax,
                             ticks: {
-                                stepSize: 0.5 // 0.5kgごとのメモリ補助線指定
+                                stepSize: 0.5 // 0.5kgごとの薄い補助線
                             }
                         },
                         'y-waist': {
                             type: 'linear',
                             position: 'right',
                             title: { display: true, text: 'ウエスト (cm)', color: 'rgb(16, 185, 129)', font: { weight: 'bold' } },
-                            grid: { drawOnChartArea: false } // 重なり防止のため右側のグリッド線はオフ
+                            grid: { drawOnChartArea: false },
+                            // 0起点を排除
+                            beginAtZero: false,
+                            min: waistMin,
+                            max: waistMax
                         }
                     }
                 }
