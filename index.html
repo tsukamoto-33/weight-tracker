@@ -401,7 +401,7 @@
 
         <!-- Pythonによる高度な自己分析レポート -->
         <section class="card">
-            <h2 class="card-title"><span>🤖</span> Python AI分析</h2>
+            <h2 class="card-title"><span>🤖</span> Python AI analysis</h2>
             <div id="analysis-report" style="font-size: 13px; line-height: 1.6; color: #475569;">
                 <p class="animate-pulse" style="color: var(--text-muted); font-size: 11px;">Pythonによる分析を待機中...</p>
             </div>
@@ -622,7 +622,7 @@
         function renderTableAndChart() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             
-            // テーブル描画
+            // 履歴テーブル描画
             const tableBody = document.getElementById('history-table');
             tableBody.innerHTML = '';
             [...records].reverse().forEach(r => {
@@ -638,77 +638,94 @@
                 tableBody.appendChild(tr);
             });
 
-            // 1. 指定期間に応じた基準カットオフ日の設定
-            const now = new Date();
-            now.setHours(23, 59, 59, 999);
-            const cutoffDate = new Date();
-            cutoffDate.setDate(now.getDate() - selectedPeriod);
+            // 今日（または最新データ日付）をベースにした日付スパン自動補完
+            const endDate = records.length > 0 ? new Date(records[records.length - 1].date) : new Date();
+            endDate.setHours(23, 59, 59, 999);
 
-            const recentRecords = records.filter(r => new Date(r.date) >= cutoffDate);
+            const startDate = new Date(endDate);
+            startDate.setDate(endDate.getDate() - selectedPeriod + 1);
+
+            // 基準日Mapを作成して検索効率を高める
+            const recordMap = {};
+            records.forEach(r => {
+                recordMap[r.date] = r;
+            });
 
             let chartLabels = [];
             let chartWeights = [];
             let chartWaists = [];
 
-            // 2. 期間（スパン）の自動集計・丸め処理
             if (selectedPeriod === 7 || selectedPeriod === 30) {
-                // 通常表示
-                chartLabels = recentRecords.map(r => r.date.substring(5)); // MM-DD 形式
-                chartWeights = recentRecords.map(r => r.weight);
-                chartWaists = recentRecords.map(r => r.waist);
+                // 1日刻みでの完全なカレンダー穴埋め
+                let cur = new Date(startDate);
+                while (cur <= endDate) {
+                    const yyyy = cur.getFullYear();
+                    const mm = (cur.getMonth() + 1).toString().padStart(2, '0');
+                    const dd = cur.getDate().toString().padStart(2, '0');
+                    const dateStr = `${yyyy}-${mm}-${dd}`;
+
+                    chartLabels.push(`${mm}-${dd}`);
+                    const r = recordMap[dateStr];
+                    if (r) {
+                        chartWeights.push(r.weight !== undefined && r.weight !== null ? r.weight : null);
+                        chartWaists.push(r.waist !== undefined && r.waist !== null ? r.waist : null);
+                    } else {
+                        // データがない日はプレースホルダー(null)を入れて枠だけ確保
+                        chartWeights.push(null);
+                        chartWaists.push(null);
+                    }
+                    cur.setDate(cur.getDate() + 1);
+                }
             } else {
-                // 長期スパン
+                // 60日以上の長期スパン：指定グループ（7日または30日）に綺麗に分割
                 const spanDays = (selectedPeriod === 60 || selectedPeriod === 90) ? 7 : 30;
-                const groups = {};
+                const blockCount = Math.ceil(selectedPeriod / spanDays);
 
-                recentRecords.forEach(r => {
-                    const rDate = new Date(r.date);
-                    const diffTime = now - rDate;
-                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                    const groupId = Math.floor(diffDays / spanDays);
+                for (let i = blockCount - 1; i >= 0; i--) {
+                    const bStart = new Date(endDate);
+                    bStart.setDate(endDate.getDate() - (i + 1) * spanDays + 1);
+                    bStart.setHours(0, 0, 0, 0);
 
-                    if (!groups[groupId]) {
-                        groups[groupId] = { weights: [], waists: [], dates: [] };
-                    }
-                    if (r.weight !== null && r.weight !== undefined) groups[groupId].weights.push(r.weight);
-                    if (r.waist !== null && r.waist !== undefined) groups[groupId].waists.push(r.waist);
-                    groups[groupId].dates.push(rDate);
-                });
+                    const bEnd = new Date(endDate);
+                    bEnd.setDate(endDate.getDate() - i * spanDays);
+                    bEnd.setHours(23, 59, 59, 999);
 
-                const sortedGroupIds = Object.keys(groups).map(Number).sort((a, b) => b - a);
+                    // 期間内の有効データのみ抽出（空欄の日は除外して平均値を算出）
+                    const blockRecords = records.filter(r => {
+                        const d = new Date(r.date);
+                        return d >= bStart && d <= bEnd;
+                    });
 
-                sortedGroupIds.forEach(gid => {
-                    const g = groups[gid];
-                    const avgWeight = g.weights.length > 0 ? (g.weights.reduce((s, v) => s + v, 0) / g.weights.length) : null;
-                    const avgWaist = g.waists.length > 0 ? (g.waists.reduce((s, v) => s + v, 0) / g.waists.length) : null;
+                    const weightsInBlock = blockRecords.map(r => r.weight).filter(v => v !== null && v !== undefined);
+                    const waistsInBlock = blockRecords.map(r => r.waist).filter(v => v !== null && v !== undefined);
 
-                    if (g.dates.length > 0) {
-                        const minD = new Date(Math.min(...g.dates));
-                        const maxD = new Date(Math.max(...g.dates));
-                        const formatD = (d) => `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
-                        const label = minD.getTime() === maxD.getTime() ? formatD(minD) : `${formatD(minD)}-${formatD(maxD)}`;
+                    const avgWeight = weightsInBlock.length > 0 ? (weightsInBlock.reduce((s, v) => s + v, 0) / weightsInBlock.length) : null;
+                    const avgWaist = waistsInBlock.length > 0 ? (waistsInBlock.reduce((s, v) => s + v, 0) / waistsInBlock.length) : null;
 
-                        chartLabels.push(label);
-                        chartWeights.push(avgWeight !== null ? Math.round(avgWeight * 100) / 100 : null);
-                        chartWaists.push(avgWaist !== null ? Math.round(avgWaist * 100) / 100 : null);
-                    }
-                });
+                    const formatD = (d) => `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
+                    const label = `${formatD(bStart)}-${formatD(bEnd)}`;
+
+                    chartLabels.push(label);
+                    chartWeights.push(avgWeight !== null ? Math.round(avgWeight * 100) / 100 : null);
+                    chartWaists.push(avgWaist !== null ? Math.round(avgWaist * 100) / 100 : null);
+                }
             }
 
             if (chartInstance) {
                 chartInstance.destroy();
             }
 
-            // 3. 【高度な修正】体重とウエストの最小値・最大値をリアルタイム算出（0起点排除）
+            // 動的ズーム（オートスケーリング）の下限・上限
             const validWeights = chartWeights.filter(v => v !== null && v !== undefined && !isNaN(v));
             const validWaists = chartWaists.filter(v => v !== null && v !== undefined && !isNaN(v));
 
-            // 安全な上限・下限値の導出 (データがないときはデフォルト値)
             const weightMin = validWeights.length > 0 ? Math.floor(Math.min(...validWeights) - 1.5) : 55;
             const weightMax = validWeights.length > 0 ? Math.ceil(Math.max(...validWeights) + 1.5) : 75;
 
             const waistMin = validWaists.length > 0 ? Math.floor(Math.min(...validWaists) - 2.5) : 70;
             const waistMax = validWaists.length > 0 ? Math.ceil(Math.max(...validWaists) + 2.5) : 90;
+
+            const weightDiff = weightMax - weightMin;
 
             const ctx = document.getElementById('weightChart').getContext('2d');
             
@@ -724,9 +741,8 @@
                             borderColor: 'rgb(79, 70, 229)',
                             backgroundColor: 'rgba(79, 70, 229, 0.65)',
                             yAxisID: 'y-weight',
-                            // 棒の幅が広がりすぎないように制限し、全データを隙間なく並べる
-                            barThickness: 'flex', 
-                            maxBarThickness: 14, 
+                            barThickness: 'flex',
+                            maxBarThickness: 14,
                         },
                         {
                             type: 'line',
@@ -735,8 +751,9 @@
                             borderColor: 'rgb(16, 185, 129)',
                             backgroundColor: 'transparent',
                             yAxisID: 'y-waist',
-                            tension: 0, // 完全に直線で繋ぐ
-                            fill: false
+                            tension: 0, 
+                            fill: false,
+                            spanGaps: true // 【新規追加】データがない日(null)を自動架橋し、ウエストの線を繋ぐ
                         }
                     ]
                 },
@@ -752,12 +769,13 @@
                                 drawOnChartArea: true,
                                 color: 'rgba(0, 0, 0, 0.05)'
                             },
-                            // 0起点を排除し、データの上下幅にクローズアップする
                             beginAtZero: false,
                             min: weightMin,
                             max: weightMax,
                             ticks: {
-                                stepSize: 0.5 // 0.5kgごとの薄い補助線
+                                // 画面崩れを防ぐインテリジェント補助線
+                                stepSize: weightDiff < 10 ? 0.5 : 1.0, 
+                                autoSkip: weightDiff < 10 ? false : true 
                             }
                         },
                         'y-waist': {
@@ -765,7 +783,6 @@
                             position: 'right',
                             title: { display: true, text: 'ウエスト (cm)', color: 'rgb(16, 185, 129)', font: { weight: 'bold' } },
                             grid: { drawOnChartArea: false },
-                            // 0起点を排除
                             beginAtZero: false,
                             min: waistMin,
                             max: waistMax
