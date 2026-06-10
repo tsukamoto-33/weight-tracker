@@ -9,7 +9,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/5087/5087847.png">
     
-    <!-- グラフとPython、QRコード生成ライブラリのみ読み込み -->
+    <!-- CDNリソースの読み込み -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -205,7 +205,6 @@
             margin-bottom: 1rem;
         }
 
-        /* 横スクロールバーを非表示 */
         .period-container::-webkit-scrollbar { display: none; }
         .period-container { -ms-overflow-style: none; scrollbar-width: none; }
 
@@ -623,6 +622,7 @@
         function renderTableAndChart() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             
+            // テーブル描画
             const tableBody = document.getElementById('history-table');
             tableBody.innerHTML = '';
             [...records].reverse().forEach(r => {
@@ -638,10 +638,65 @@
                 tableBody.appendChild(tr);
             });
 
-            const recentRecords = records.slice(-selectedPeriod);
-            const labels = recentRecords.map(r => r.date.substring(5));
-            const weights = recentRecords.map(r => r.weight);
-            const waists = recentRecords.map(r => r.waist);
+            // 1. 指定期間に応じた基準カットオフ日の設定
+            const now = new Date();
+            now.setHours(23, 59, 59, 999);
+            const cutoffDate = new Date();
+            cutoffDate.setDate(now.getDate() - selectedPeriod);
+
+            const recentRecords = records.filter(r => new Date(r.date) >= cutoffDate);
+
+            let chartLabels = [];
+            let chartWeights = [];
+            let chartWaists = [];
+
+            // 2. 期間（スパン）の自動集計・丸め処理
+            if (selectedPeriod === 7 || selectedPeriod === 30) {
+                // 通常表示（1日ごとの値をそのまま採用）
+                chartLabels = recentRecords.map(r => r.date.substring(5)); // MM-DD 形式
+                chartWeights = recentRecords.map(r => r.weight);
+                chartWaists = recentRecords.map(r => r.waist);
+            } else {
+                // 長期スパン：60日/90日は7日平均、180日/365日は30日平均
+                const spanDays = (selectedPeriod === 60 || selectedPeriod === 90) ? 7 : 30;
+                const groups = {};
+
+                recentRecords.forEach(r => {
+                    const rDate = new Date(r.date);
+                    const diffTime = now - rDate;
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    const groupId = Math.floor(diffDays / spanDays); // 経過日数に基づきグループ分け
+
+                    if (!groups[groupId]) {
+                        groups[groupId] = { weights: [], waists: [], dates: [] };
+                    }
+                    if (r.weight !== null && r.weight !== undefined) groups[groupId].weights.push(r.weight);
+                    if (r.waist !== null && r.waist !== undefined) groups[groupId].waists.push(r.waist);
+                    groups[groupId].dates.push(rDate);
+                });
+
+                // グループIDを古い順（数字が大きい方から小さい方）に並び替えてプロット
+                const sortedGroupIds = Object.keys(groups).map(Number).sort((a, b) => b - a);
+
+                sortedGroupIds.forEach(gid => {
+                    const g = groups[gid];
+                    const avgWeight = g.weights.length > 0 ? (g.weights.reduce((s, v) => s + v, 0) / g.weights.length) : null;
+                    const avgWaist = g.waists.length > 0 ? (g.waists.reduce((s, v) => s + v, 0) / g.waists.length) : null;
+
+                    if (g.dates.length > 0) {
+                        const minD = new Date(Math.min(...g.dates));
+                        const maxD = new Date(Math.max(...g.dates));
+                        const formatD = (d) => `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
+                        
+                        // 期間を「06/01-06/07」のような範囲ラベルにする
+                        const label = minD.getTime() === maxD.getTime() ? formatD(minD) : `${formatD(minD)}-${formatD(maxD)}`;
+
+                        chartLabels.push(label);
+                        chartWeights.push(avgWeight !== null ? Math.round(avgWeight * 100) / 100 : null);
+                        chartWaists.push(avgWaist !== null ? Math.round(avgWaist * 100) / 100 : null);
+                    }
+                });
+            }
 
             if (chartInstance) {
                 chartInstance.destroy();
@@ -649,28 +704,30 @@
 
             const ctx = document.getElementById('weightChart').getContext('2d');
             
+            // 3. 2軸グラフの設定 (体重: 0.5kg補助線付き棒グラフ / ウエスト: 直線折れ線)
             chartInstance = new Chart(ctx, {
-                type: 'line',
+                type: 'bar', // 全体タイプをbarに設定（混在グラフ用）
                 data: {
-                    labels: labels,
+                    labels: chartLabels,
                     datasets: [
                         {
+                            type: 'bar', // 体重は棒グラフ
                             label: '体重 (kg)',
-                            data: weights,
+                            data: chartWeights,
                             borderColor: 'rgb(79, 70, 229)',
-                            backgroundColor: 'rgba(79, 70, 229, 0.05)',
-                            yAxisID: 'y-weight', 
-                            tension: 0.3,
-                            fill: true
+                            backgroundColor: 'rgba(79, 70, 229, 0.65)',
+                            yAxisID: 'y-weight',
+                            barPercentage: 0.55 // 太さを程よく調整
                         },
                         {
+                            type: 'line', // ウエストは折れ線グラフ
                             label: 'ウエスト (cm)',
-                            data: waists,
+                            data: chartWaists,
                             borderColor: 'rgb(16, 185, 129)',
-                            backgroundColor: 'rgba(16, 185, 129, 0.05)',
-                            yAxisID: 'y-waist', 
-                            tension: 0.3,
-                            fill: true
+                            backgroundColor: 'transparent',
+                            yAxisID: 'y-waist',
+                            tension: 0, // 0にすることで曲線を「直線」に変更
+                            fill: false
                         }
                     ]
                 },
@@ -682,13 +739,19 @@
                             type: 'linear',
                             position: 'left',
                             title: { display: true, text: '体重 (kg)', color: 'rgb(79, 70, 229)', font: { weight: 'bold' } },
-                            grid: { drawOnChartArea: true }
+                            grid: { 
+                                drawOnChartArea: true,
+                                color: 'rgba(0, 0, 0, 0.05)' // 補助線用の極薄グレー
+                            },
+                            ticks: {
+                                stepSize: 0.5 // 0.5kgごとのメモリ補助線指定
+                            }
                         },
                         'y-waist': {
                             type: 'linear',
                             position: 'right',
                             title: { display: true, text: 'ウエスト (cm)', color: 'rgb(16, 185, 129)', font: { weight: 'bold' } },
-                            grid: { drawOnChartArea: false } 
+                            grid: { drawOnChartArea: false } // 重なり防止のため右側のグリッド線はオフ
                         }
                     }
                 }
