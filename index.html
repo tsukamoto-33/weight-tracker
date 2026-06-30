@@ -399,7 +399,7 @@
             </div>
         </section>
 
-        <!-- 【新規追加】曜日別分析・比較セクション -->
+        <!-- 曜日別分析・比較セクション -->
         <section class="card">
             <h2 class="card-title" style="margin-bottom: 0.5rem;"><span>🗓️</span> 曜日別分析（推移・比較）</h2>
             <p class="card-desc">曜日ごとにデータを切り出して、規則的な体重変化のパターンを分析できます。</p>
@@ -421,6 +421,38 @@
             </div>
         </section>
 
+        <!-- 【完全新規追加】曜日別データ比較表 (数値一覧) -->
+        <section class="card">
+            <h2 class="card-title" style="margin-bottom: 0.5rem;"><span>📊</span> 曜日別数値一覧 (比較・推移)</h2>
+            <p class="card-desc">曜日ごとの平均値の比較や、特定の曜日だけの詳細推移データを数値で見比べられます。</p>
+            
+            <!-- 期間切り替え（テーブル用） -->
+            <div class="period-container" style="margin-bottom: 0.5rem;">
+                <button type="button" onclick="changeTablePeriod(7)" id="btn-t-7" class="btn-period">7日</button>
+                <button type="button" onclick="changeTablePeriod(30)" id="btn-t-30" class="btn-period active">30日</button>
+                <button type="button" onclick="changeTablePeriod(180)" id="btn-t-180" class="btn-period">180日</button>
+                <button type="button" onclick="changeTablePeriod(365)" id="btn-t-365" class="btn-period">365日</button>
+            </div>
+
+            <!-- 曜日切り替え（テーブル用） -->
+            <div class="period-container" style="margin-bottom: 1rem;">
+                <button type="button" onclick="changeTableWeekday('all')" id="btn-tw-all" class="btn-period active">全曜日一覧</button>
+                <button type="button" onclick="changeTableWeekday(1)" id="btn-tw-1" class="btn-period">月</button>
+                <button type="button" onclick="changeTableWeekday(2)" id="btn-tw-2" class="btn-period">火</button>
+                <button type="button" onclick="changeTableWeekday(3)" id="btn-tw-3" class="btn-period">水</button>
+                <button type="button" onclick="changeTableWeekday(4)" id="btn-tw-4" class="btn-period">木</button>
+                <button type="button" onclick="changeTableWeekday(5)" id="btn-tw-5" class="btn-period">金</button>
+                <button type="button" onclick="changeTableWeekday(6)" id="btn-tw-6" class="btn-period">土</button>
+                <button type="button" onclick="changeTableWeekday(0)" id="btn-tw-0" class="btn-period">日</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table id="weekday-comparison-table">
+                    <!-- 動的にJSでヘッダーとコンテンツを挿入します -->
+                </table>
+            </div>
+        </section>
+
         <!-- Pythonによる高度な自己分析レポート -->
         <section class="card">
             <h2 class="card-title"><span>🤖</span> Python AI分析</h2>
@@ -429,7 +461,7 @@
             </div>
         </section>
 
-        <!-- 【大幅アップデート】GitHub自動バックアップ＆引越し機能 -->
+        <!-- クラウド・データ連携 -->
         <section class="card">
             <h2 class="card-title" style="margin-bottom: 0.5rem;"><span>☁️</span> クラウド・データ連携</h2>
             
@@ -451,7 +483,21 @@
                 </div>
             </details>
 
-            <button type="button" onclick="backupToGitHub()" class="btn btn-primary" style="margin-bottom: 0.75rem;">☁️ GitHubに最新データを保存</button>
+            <!-- クラウド同期ボタン -->
+            <div class="grid-2" style="margin-bottom: 0.75rem;">
+                <button type="button" onclick="backupToGitHub()" class="btn btn-primary" style="font-size: 11px; padding: 0.85rem 0.5rem;">☁️ クラウドへ保存</button>
+                <button type="button" onclick="restoreFromGitHub()" class="btn btn-primary" style="background-color: #312e81; font-size: 11px; padding: 0.85rem 0.5rem;">☁️ クラウドから復元</button>
+            </div>
+            
+            <!-- 完全ローカル（オフライン）同期ボタン -->
+            <div class="grid-2" style="margin-bottom: 0.75rem;">
+                <button type="button" onclick="downloadJSONFile()" class="btn btn-success" style="background-color: #0369a1; font-size: 11px; padding: 0.85rem 0.5rem;">📥 ローカルへ保存</button>
+                <button type="button" onclick="triggerLocalJSONImport()" class="btn btn-success" style="background-color: #0f766e; font-size: 11px; padding: 0.85rem 0.5rem;">📤 ローカルから復元</button>
+            </div>
+            
+            <!-- 非表示のファイル選択要素 -->
+            <input type="file" id="local-file-input" accept=".json" class="hidden" onchange="importLocalJSONFile(event)">
+            
             <button type="button" onclick="generateQRCode()" class="btn btn-success">📲 オフラインQRコード引越し</button>
             
             <div id="qr-container" class="hidden">
@@ -493,8 +539,13 @@
         let pyodideInstance = null;
         let chartInstance = null;
         let weekdayChartInstance = null;
+        
         let selectedPeriod = 30;
-        let selectedWeekdayFilter = 'all'; // デフォルトは曜日別平均比較グラフを表示
+        let selectedWeekdayFilter = 'all';
+        
+        // 【新規】テーブル用状態変数
+        let selectedTablePeriod = 30;
+        let selectedTableWeekday = 'all';
 
         window.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('input-date').valueAsDate = new Date();
@@ -505,7 +556,7 @@
             await initPyodide();
         });
 
-        // URLパラメータからのデータインポート
+        // URLデータインポート
         function checkURLAndImport() {
             const urlParams = new URLSearchParams(window.location.search);
             const importData = urlParams.get('data');
@@ -534,7 +585,7 @@
             }
         }
 
-        // GitHubバックアップ設定のロードと保存
+        // GitHub設定
         function saveGithubSettings() {
             const repo = document.getElementById('gh-repo').value.trim();
             const token = document.getElementById('gh-token').value.trim();
@@ -547,7 +598,7 @@
             if (settings.token) document.getElementById('gh-token').value = settings.token;
         }
 
-        // GitHubへの自動アップロード・バックアップ実行
+        // GitHubバックアップ
         async function backupToGitHub() {
             const settings = JSON.parse(localStorage.getItem('wt_github_settings') || '{}');
             const repo = settings.repo;
@@ -555,7 +606,7 @@
             const path = "backup_data.json";
 
             if (!repo || !token) {
-                alert("GitHubへのログイン認証（リポジトリ名・アクセストークン）を「基本設定」内のフォームに記入してください。");
+                alert("GitHubへの認証情報を「GitHubバックアップ先の設定」欄に記入してください。");
                 return;
             }
 
@@ -571,7 +622,6 @@
             };
 
             try {
-                // 1. 既存ファイルが存在するか確認してSHAハッシュを取得
                 let sha = null;
                 const getRes = await fetch(url, { headers });
                 if (getRes.status === 200) {
@@ -579,7 +629,6 @@
                     sha = getJson.sha;
                 }
 
-                // 2. データをBase64にエンコードしてアップロードコミット
                 const body = {
                     message: "Cloud Backup from Body Tracker WebApp",
                     content: btoa(unescape(encodeURIComponent(fileContent)))
@@ -599,11 +648,130 @@
                     alert("アップロード失敗: " + (errJson.message || putRes.statusText));
                 }
             } catch (error) {
-                alert("通信エラーが発生しました。インターネット接続やリポジトリ設定を確認してください。\nエラー: " + error.message);
+                alert("通信エラーが発生しました。\nエラー: " + error.message);
             }
         }
 
-        // オフライン用QRコード
+        // GitHub復元
+        async function restoreFromGitHub() {
+            const settings = JSON.parse(localStorage.getItem('wt_github_settings') || '{}');
+            const repo = settings.repo;
+            const token = settings.token;
+            const path = "backup_data.json";
+
+            if (!repo || !token) {
+                alert("GitHubへの認証情報を「GitHubバックアップ先の設定」欄に記入してください。");
+                return;
+            }
+
+            if (!confirm("【復元の警告】\nGitHubにあるバックアップデータをダウンロードし、この端末のデータを上書きしますか？\n（※現在の記録は上書き消去されます）")) {
+                return;
+            }
+
+            const url = `https://api.github.com/repos/${repo}/contents/${path}`;
+            const headers = {
+                "Authorization": `token ${token}`,
+                "Accept": "application/vnd.github.v3+json"
+            };
+
+            try {
+                const res = await fetch(url, { headers });
+                if (res.status === 200) {
+                    const json = await res.json();
+                    const decodedContent = decodeURIComponent(escape(atob(json.content)));
+                    const payload = JSON.parse(decodedContent);
+
+                    if (payload.records && Array.isArray(payload.records)) {
+                        localStorage.setItem('wt_records', JSON.stringify(payload.records));
+                        if (payload.profile) {
+                            localStorage.setItem('wt_profile', JSON.stringify(payload.profile));
+                        }
+                        
+                        loadProfile();
+                        renderTableAndChart();
+                        runPythonAnalysis();
+                        
+                        alert("🎉 GitHubからデータを正常に引き込み、復元に成功しました！");
+                    } else {
+                        alert("バックアップデータの構造が不正です。");
+                    }
+                } else if (res.status === 404) {
+                    alert("GitHub上にバックアップファイルが見つかりません。");
+                } else {
+                    const errJson = await res.json();
+                    alert("ダウンロード失敗: " + (errJson.message || res.statusText));
+                }
+            } catch (error) {
+                alert("通信エラーが発生しました。\nエラー: " + error.message);
+            }
+        }
+
+        // ローカル保存
+        function downloadJSONFile() {
+            const records = localStorage.getItem('wt_records') || '[]';
+            const profile = localStorage.getItem('wt_profile') || '{}';
+            
+            const payload = {
+                records: JSON.parse(records),
+                profile: JSON.parse(profile)
+            };
+
+            const fileContent = JSON.stringify(payload, null, 2);
+            const blob = new Blob([fileContent], { type: "application/json" });
+            const dummyLink = document.createElement("a");
+            
+            const yyyymmdd = new Date().toISOString().substring(0, 10).replace(/-/g, "");
+            dummyLink.download = `body_tracker_backup_${yyyymmdd}.json`;
+            
+            dummyLink.href = URL.createObjectURL(blob);
+            dummyLink.dataset.downloadurl = ["application/json", dummyLink.download, dummyLink.href].join(":");
+            
+            document.body.appendChild(dummyLink);
+            dummyLink.click();
+            document.body.removeChild(dummyLink);
+        }
+
+        // ローカル復元トリガー
+        function triggerLocalJSONImport() {
+            document.getElementById('local-file-input').click();
+        }
+
+        // ローカル復元
+        function importLocalJSONFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const payload = JSON.parse(e.target.result);
+
+                    if (payload.records && Array.isArray(payload.records)) {
+                        if (confirm(`【ローカル復元の実行】\nファイル「${file.name}」からデータを読み込みますか？\n（※既存のデータはすべて上書き消去されます）`)) {
+                            localStorage.setItem('wt_records', JSON.stringify(payload.records));
+                            if (payload.profile) {
+                                localStorage.setItem('wt_profile', JSON.stringify(payload.profile));
+                            }
+
+                            loadProfile();
+                            renderTableAndChart();
+                            runPythonAnalysis();
+
+                            alert(`🎉 ファイル「${file.name}」からデータを読み込み、復元に成功しました！`);
+                        }
+                    } else {
+                        alert("データ構造が不正です。");
+                    }
+                } catch (err) {
+                    alert("ファイルの解析に失敗しました。");
+                    console.error(err);
+                }
+                event.target.value = "";
+            };
+            reader.readAsText(file);
+        }
+
+        // QRコード生成
         function generateQRCode() {
             const records = localStorage.getItem('wt_records') || '[]';
             const profile = localStorage.getItem('wt_profile') || '{}';
@@ -643,7 +811,7 @@
             document.getElementById('qr-container').classList.add('hidden');
         }
 
-        // 期間切り替え
+        // 時系列グラフ期間切り替え
         function changePeriod(days) {
             selectedPeriod = days;
             const periods = [7, 30, 60, 90, 180, 365];
@@ -658,7 +826,7 @@
             renderTableAndChart();
         }
 
-        // 曜日別切り替え処理（新規追加）
+        // 曜日別グラフ切り替え
         function changeWeekdayFilter(day) {
             selectedWeekdayFilter = day;
             const weekdays = ['all', 1, 2, 3, 4, 5, 6, 0];
@@ -671,6 +839,36 @@
                 }
             });
             renderWeekdayChart();
+        }
+
+        // 【新規実装】曜日テーブル用：期間タブ切り替え
+        function changeTablePeriod(days) {
+            selectedTablePeriod = days;
+            const periods = [7, 30, 180, 365];
+            periods.forEach(p => {
+                const btn = document.getElementById(`btn-t-${p}`);
+                if (p === days) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            renderWeekdayTable();
+        }
+
+        // 【新規実装】曜日テーブル用：曜日タブ切り替え
+        function changeTableWeekday(day) {
+            selectedTableWeekday = day;
+            const weekdays = ['all', 1, 2, 3, 4, 5, 6, 0];
+            weekdays.forEach(w => {
+                const btn = document.getElementById(`btn-tw-${w}`);
+                if (w === day) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            renderWeekdayTable();
         }
 
         async function initPyodide() {
@@ -748,7 +946,7 @@
             runPythonAnalysis();
         }
 
-        // 曜日別比較・推移グラフのレンダリング処理（新規追加）
+        // 曜日別グラフ
         function renderWeekdayChart() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             
@@ -760,7 +958,6 @@
             const weekNames = ['日', '月', '火', '水', '木', '金', '土'];
 
             if (selectedWeekdayFilter === 'all') {
-                // 1. 「全曜日(平均)」選択時：月〜日それぞれの平均値を求めて比較する
                 const weekdayStats = weekNames.map((name, index) => {
                     const filtered = records.filter(r => new Date(r.date).getDay() === index);
                     const weights = filtered.map(r => r.weight).filter(v => v !== null && v !== undefined);
@@ -775,7 +972,6 @@
                 const chartWeights = weekdayStats.map(s => s.weight !== null ? Math.round(s.weight * 100) / 100 : null);
                 const chartWaists = weekdayStats.map(s => s.waist !== null ? Math.round(s.waist * 100) / 100 : null);
 
-                // 動的なオートスケーリング
                 const validW = chartWeights.filter(v => v !== null);
                 const validA = chartWaists.filter(v => v !== null);
                 const wMin = validW.length > 0 ? Math.floor(Math.min(...validW) - 1.5) : 55;
@@ -834,21 +1030,17 @@
                 });
 
             } else {
-                // 2. 個別曜日(例: 月曜日のみ)選択時：特定曜日だけを過去から順に並べて推移を表示
                 const dayIndex = parseInt(selectedWeekdayFilter);
-                
-                // 設定された期間(selectedPeriod)の範囲に準ずる
                 const now = new Date();
                 const cutoffDate = new Date();
                 cutoffDate.setDate(now.getDate() - selectedPeriod);
 
-                // 該当の曜日データのみ抽出
                 const filteredRecords = records.filter(r => {
                     const d = new Date(r.date);
                     return d.getDay() === dayIndex && d >= cutoffDate;
                 });
 
-                const chartLabels = filteredRecords.map(r => r.date.substring(5)); // MM-DD 形式
+                const chartLabels = filteredRecords.map(r => r.date.substring(5));
                 const chartWeights = filteredRecords.map(r => r.weight);
                 const chartWaists = filteredRecords.map(r => r.waist);
 
@@ -912,7 +1104,100 @@
             }
         }
 
-        // 時系列推移グラフと履歴のレンダリング
+        // 【新規実装】曜日データ比較テーブル (数値一覧) の生成ロジック
+        function renderWeekdayTable() {
+            const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
+            const table = document.getElementById('weekday-comparison-table');
+            const weekNames = ['日', '月', '火', '水', '木', '金', '土'];
+            
+            table.innerHTML = ''; // テーブルをクリア
+
+            // 今日を基準にしたカットオフ日の計算
+            const now = new Date();
+            now.setHours(23, 59, 59, 999);
+            const cutoffDate = new Date();
+            cutoffDate.setDate(now.getDate() - selectedTablePeriod + 1);
+
+            // 指定された期間のデータにフィルタリング
+            const periodRecords = records.filter(r => new Date(r.date) >= cutoffDate);
+
+            if (selectedTableWeekday === 'all') {
+                // 1. 全曜日一覧表示モード
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>曜日</th>
+                            <th>平均体重</th>
+                            <th>平均腹囲</th>
+                            <th>測定件数</th>
+                        </tr>
+                    </thead>
+                    <tbody id="weekday-table-body"></tbody>
+                `;
+                
+                const tbody = document.getElementById('weekday-table-body');
+                
+                // 月曜(1)からスタートして日曜日(0)で終わる順番に並べる
+                const weekdayOrder = [1, 2, 3, 4, 5, 6, 0];
+                
+                weekdayOrder.forEach(dayIndex => {
+                    const filtered = periodRecords.filter(r => new Date(r.date).getDay() === dayIndex);
+                    const weights = filtered.map(r => r.weight).filter(v => v !== null && v !== undefined);
+                    const waists = filtered.map(r => r.waist).filter(v => v !== null && v !== undefined);
+                    
+                    const avgW = weights.length > 0 ? (weights.reduce((s, v) => s + v, 0) / weights.length).toFixed(2) + " kg" : "-";
+                    const avgA = waists.length > 0 ? (waists.reduce((s, v) => s + v, 0) / waists.length).toFixed(1) + " cm" : "-";
+                    
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight: 700; color: #475569;">${weekNames[dayIndex]}曜日</td>
+                        <td style="font-weight: 600;">${avgW}</td>
+                        <td>${avgA}</td>
+                        <td style="color: var(--text-muted);">${filtered.length} 件</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+            } else {
+                // 2. 特定曜日だけの詳細推移リスト表示モード
+                const dayIndex = parseInt(selectedTableWeekday);
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>日付</th>
+                            <th>曜日</th>
+                            <th>体重</th>
+                            <th>腹囲</th>
+                        </tr>
+                    </thead>
+                    <tbody id="weekday-table-body"></tbody>
+                `;
+
+                const tbody = document.getElementById('weekday-table-body');
+                
+                // 該当曜日のデータのみを最新（降順）に並べ替えて表示
+                const filtered = periodRecords.filter(r => new Date(r.date).getDay() === dayIndex).reverse();
+
+                if (filtered.length === 0) {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td colspan="4" style="text-align: center; color: var(--text-muted); padding: 1.5rem 0;">この曜日の記録はありません。</td>`;
+                    tbody.appendChild(tr);
+                } else {
+                    filtered.forEach(r => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="font-weight: 600; color: #475569;">${r.date}</td>
+                            <td style="color: var(--text-muted);">${weekNames[dayIndex]}曜</td>
+                            <td style="font-weight: 600;">${r.weight} kg</td>
+                            <td>${r.waist ? r.waist + ' cm' : '-'}</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                }
+            }
+        }
+
+        // 時系列グラフおよび履歴
         function renderTableAndChart() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             
@@ -1074,8 +1359,9 @@
                 }
             });
 
-            // 曜日別比較グラフも更新
+            // 曜日別チャート及び、新規新設の【曜日別テーブル】をどちらもレンダリング
             renderWeekdayChart();
+            renderWeekdayTable();
         }
 
         async function runPythonAnalysis() {
