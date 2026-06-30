@@ -196,7 +196,7 @@
             transform: scale(0.98);
         }
 
-        /* 期間切り替え */
+        /* 期間・曜日切り替え */
         .period-container {
             display: flex;
             gap: 0.35rem;
@@ -399,21 +399,60 @@
             </div>
         </section>
 
+        <!-- 【新規追加】曜日別分析・比較セクション -->
+        <section class="card">
+            <h2 class="card-title" style="margin-bottom: 0.5rem;"><span>🗓️</span> 曜日別分析（推移・比較）</h2>
+            <p class="card-desc">曜日ごとにデータを切り出して、規則的な体重変化のパターンを分析できます。</p>
+            
+            <!-- 曜日選択タブ -->
+            <div class="period-container" id="weekday-tabs">
+                <button type="button" onclick="changeWeekdayFilter('all')" id="btn-wd-all" class="btn-period active">全曜日(平均)</button>
+                <button type="button" onclick="changeWeekdayFilter(1)" id="btn-wd-1" class="btn-period">月</button>
+                <button type="button" onclick="changeWeekdayFilter(2)" id="btn-wd-2" class="btn-period">火</button>
+                <button type="button" onclick="changeWeekdayFilter(3)" id="btn-wd-3" class="btn-period">水</button>
+                <button type="button" onclick="changeWeekdayFilter(4)" id="btn-wd-4" class="btn-period">木</button>
+                <button type="button" onclick="changeWeekdayFilter(5)" id="btn-wd-5" class="btn-period">金</button>
+                <button type="button" onclick="changeWeekdayFilter(6)" id="btn-wd-6" class="btn-period">土</button>
+                <button type="button" onclick="changeWeekdayFilter(0)" id="btn-wd-0" class="btn-period">日</button>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="weekdayChart"></canvas>
+            </div>
+        </section>
+
         <!-- Pythonによる高度な自己分析レポート -->
         <section class="card">
-            <h2 class="card-title"><span>🤖</span> Python AI analysis</h2>
+            <h2 class="card-title"><span>🤖</span> Python AI分析</h2>
             <div id="analysis-report" style="font-size: 13px; line-height: 1.6; color: #475569;">
                 <p class="animate-pulse" style="color: var(--text-muted); font-size: 11px;">Pythonによる分析を待機中...</p>
             </div>
         </section>
 
-        <!-- データ引越しセクション -->
+        <!-- 【大幅アップデート】GitHub自動バックアップ＆引越し機能 -->
         <section class="card">
-            <h2 class="card-title" style="margin-bottom: 0.25rem;"><span>📲</span> データ引越し</h2>
-            <p class="card-desc">
-                全データをQRコード化します。別端末のカメラで読み取るだけで、ネットワークログを一切残さずにデータ移行が可能です。
-            </p>
-            <button type="button" onclick="generateQRCode()" class="btn btn-success">🔍 引越し用QRコードを生成する</button>
+            <h2 class="card-title" style="margin-bottom: 0.5rem;"><span>☁️</span> クラウド・データ連携</h2>
+            
+            <!-- GitHubバックアップ設定 -->
+            <details class="card-desc" style="background-color: var(--input-bg); padding: 0.75rem; border-radius: 1rem; border: 1px solid #e2e8f0; cursor: pointer; margin-bottom: 1rem;">
+                <summary style="font-weight: 700; color: #475569;">🔑 GitHubバックアップ先の設定</summary>
+                <div style="margin-top: 0.75rem; space-y-3; display: flex; flex-direction: column; gap: 0.5rem;" onclick="event.stopPropagation();">
+                    <div>
+                        <label class="label">リポジトリ名 (例: yourname/body-tracker-backup)</label>
+                        <input type="text" id="gh-repo" class="input" placeholder="username/repo-name" onchange="saveGithubSettings()">
+                    </div>
+                    <div>
+                        <label class="label">個人アクセストークン (PAT - repo権限付き)</label>
+                        <input type="password" id="gh-token" class="input" placeholder="ghp_xxxxxxxxxxxx" onchange="saveGithubSettings()">
+                    </div>
+                    <p style="font-size: 10px; color: var(--text-muted); line-height: 1.4;">
+                        ※トークン情報は暗号化通信で直接GitHubに送信されます。サーバーを介さないため安心です。
+                    </p>
+                </div>
+            </details>
+
+            <button type="button" onclick="backupToGitHub()" class="btn btn-primary" style="margin-bottom: 0.75rem;">☁️ GitHubに最新データを保存</button>
+            <button type="button" onclick="generateQRCode()" class="btn btn-success">📲 オフラインQRコード引越し</button>
             
             <div id="qr-container" class="hidden">
                 <div id="qrcode"></div>
@@ -453,16 +492,20 @@
     <script>
         let pyodideInstance = null;
         let chartInstance = null;
+        let weekdayChartInstance = null;
         let selectedPeriod = 30;
+        let selectedWeekdayFilter = 'all'; // デフォルトは曜日別平均比較グラフを表示
 
         window.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('input-date').valueAsDate = new Date();
             checkURLAndImport();
             loadProfile();
+            loadGithubSettings();
             renderTableAndChart();
             await initPyodide();
         });
 
+        // URLパラメータからのデータインポート
         function checkURLAndImport() {
             const urlParams = new URLSearchParams(window.location.search);
             const importData = urlParams.get('data');
@@ -491,6 +534,76 @@
             }
         }
 
+        // GitHubバックアップ設定のロードと保存
+        function saveGithubSettings() {
+            const repo = document.getElementById('gh-repo').value.trim();
+            const token = document.getElementById('gh-token').value.trim();
+            localStorage.setItem('wt_github_settings', JSON.stringify({ repo, token }));
+        }
+
+        function loadGithubSettings() {
+            const settings = JSON.parse(localStorage.getItem('wt_github_settings') || '{}');
+            if (settings.repo) document.getElementById('gh-repo').value = settings.repo;
+            if (settings.token) document.getElementById('gh-token').value = settings.token;
+        }
+
+        // GitHubへの自動アップロード・バックアップ実行
+        async function backupToGitHub() {
+            const settings = JSON.parse(localStorage.getItem('wt_github_settings') || '{}');
+            const repo = settings.repo;
+            const token = settings.token;
+            const path = "backup_data.json";
+
+            if (!repo || !token) {
+                alert("GitHubへのログイン認証（リポジトリ名・アクセストークン）を「基本設定」内のフォームに記入してください。");
+                return;
+            }
+
+            const records = localStorage.getItem('wt_records') || '[]';
+            const profile = localStorage.getItem('wt_profile') || '{}';
+            const fileContent = JSON.stringify({ records: JSON.parse(records), profile: JSON.parse(profile) }, null, 2);
+
+            const url = `https://api.github.com/repos/${repo}/contents/${path}`;
+            const headers = {
+                "Authorization": `token ${token}`,
+                "Accept": "application/vnd.github.v3+json",
+                "Content-Type": "application/json"
+            };
+
+            try {
+                // 1. 既存ファイルが存在するか確認してSHAハッシュを取得
+                let sha = null;
+                const getRes = await fetch(url, { headers });
+                if (getRes.status === 200) {
+                    const getJson = await getRes.json();
+                    sha = getJson.sha;
+                }
+
+                // 2. データをBase64にエンコードしてアップロードコミット
+                const body = {
+                    message: "Cloud Backup from Body Tracker WebApp",
+                    content: btoa(unescape(encodeURIComponent(fileContent)))
+                };
+                if (sha) body.sha = sha;
+
+                const putRes = await fetch(url, {
+                    method: "PUT",
+                    headers,
+                    body: JSON.stringify(body)
+                });
+
+                if (putRes.status === 200 || putRes.status === 201) {
+                    alert("🎉 GitHubへ最新の履歴データを安全にバックアップしました！");
+                } else {
+                    const errJson = await putRes.json();
+                    alert("アップロード失敗: " + (errJson.message || putRes.statusText));
+                }
+            } catch (error) {
+                alert("通信エラーが発生しました。インターネット接続やリポジトリ設定を確認してください。\nエラー: " + error.message);
+            }
+        }
+
+        // オフライン用QRコード
         function generateQRCode() {
             const records = localStorage.getItem('wt_records') || '[]';
             const profile = localStorage.getItem('wt_profile') || '{}';
@@ -530,6 +643,7 @@
             document.getElementById('qr-container').classList.add('hidden');
         }
 
+        // 期間切り替え
         function changePeriod(days) {
             selectedPeriod = days;
             const periods = [7, 30, 60, 90, 180, 365];
@@ -542,6 +656,21 @@
                 }
             });
             renderTableAndChart();
+        }
+
+        // 曜日別切り替え処理（新規追加）
+        function changeWeekdayFilter(day) {
+            selectedWeekdayFilter = day;
+            const weekdays = ['all', 1, 2, 3, 4, 5, 6, 0];
+            weekdays.forEach(w => {
+                const btn = document.getElementById(`btn-wd-${w}`);
+                if (w === day) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            renderWeekdayChart();
         }
 
         async function initPyodide() {
@@ -619,10 +748,174 @@
             runPythonAnalysis();
         }
 
+        // 曜日別比較・推移グラフのレンダリング処理（新規追加）
+        function renderWeekdayChart() {
+            const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
+            
+            if (weekdayChartInstance) {
+                weekdayChartInstance.destroy();
+            }
+
+            const ctx = document.getElementById('weekdayChart').getContext('2d');
+            const weekNames = ['日', '月', '火', '水', '木', '金', '土'];
+
+            if (selectedWeekdayFilter === 'all') {
+                // 1. 「全曜日(平均)」選択時：月〜日それぞれの平均値を求めて比較する
+                const weekdayStats = weekNames.map((name, index) => {
+                    const filtered = records.filter(r => new Date(r.date).getDay() === index);
+                    const weights = filtered.map(r => r.weight).filter(v => v !== null && v !== undefined);
+                    const waists = filtered.map(r => r.waist).filter(v => v !== null && v !== undefined);
+                    
+                    return {
+                        weight: weights.length > 0 ? weights.reduce((s, v) => s + v, 0) / weights.length : null,
+                        waist: waists.length > 0 ? waists.reduce((s, v) => s + v, 0) / waists.length : null
+                    };
+                });
+
+                const chartWeights = weekdayStats.map(s => s.weight !== null ? Math.round(s.weight * 100) / 100 : null);
+                const chartWaists = weekdayStats.map(s => s.waist !== null ? Math.round(s.waist * 100) / 100 : null);
+
+                // 動的なオートスケーリング
+                const validW = chartWeights.filter(v => v !== null);
+                const validA = chartWaists.filter(v => v !== null);
+                const wMin = validW.length > 0 ? Math.floor(Math.min(...validW) - 1.5) : 55;
+                const wMax = validW.length > 0 ? Math.ceil(Math.max(...validW) + 1.5) : 75;
+                const aMin = validA.length > 0 ? Math.floor(Math.min(...validA) - 2.5) : 70;
+                const aMax = validA.length > 0 ? Math.ceil(Math.max(...validA) + 2.5) : 90;
+
+                weekdayChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: weekNames,
+                        datasets: [
+                            {
+                                label: '平均体重 (kg)',
+                                data: chartWeights,
+                                borderColor: 'rgb(79, 70, 229)',
+                                backgroundColor: 'rgba(79, 70, 229, 0.65)',
+                                yAxisID: 'y-weight',
+                                maxBarThickness: 14,
+                            },
+                            {
+                                type: 'line',
+                                label: '平均ウエスト (cm)',
+                                data: chartWaists,
+                                borderColor: 'rgb(16, 185, 129)',
+                                backgroundColor: 'transparent',
+                                yAxisID: 'y-waist',
+                                tension: 0,
+                                fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            'y-weight': {
+                                type: 'linear',
+                                position: 'left',
+                                beginAtZero: false,
+                                min: wMin,
+                                max: wMax,
+                                title: { display: true, text: '平均体重 (kg)' }
+                            },
+                            'y-waist': {
+                                type: 'linear',
+                                position: 'right',
+                                beginAtZero: false,
+                                min: aMin,
+                                max: aMax,
+                                title: { display: true, text: '平均腹囲 (cm)' },
+                                grid: { drawOnChartArea: false }
+                            }
+                        }
+                    }
+                });
+
+            } else {
+                // 2. 個別曜日(例: 月曜日のみ)選択時：特定曜日だけを過去から順に並べて推移を表示
+                const dayIndex = parseInt(selectedWeekdayFilter);
+                
+                // 設定された期間(selectedPeriod)の範囲に準ずる
+                const now = new Date();
+                const cutoffDate = new Date();
+                cutoffDate.setDate(now.getDate() - selectedPeriod);
+
+                // 該当の曜日データのみ抽出
+                const filteredRecords = records.filter(r => {
+                    const d = new Date(r.date);
+                    return d.getDay() === dayIndex && d >= cutoffDate;
+                });
+
+                const chartLabels = filteredRecords.map(r => r.date.substring(5)); // MM-DD 形式
+                const chartWeights = filteredRecords.map(r => r.weight);
+                const chartWaists = filteredRecords.map(r => r.waist);
+
+                const validW = chartWeights.filter(v => v !== null);
+                const validA = chartWaists.filter(v => v !== null);
+                const wMin = validW.length > 0 ? Math.floor(Math.min(...validW) - 1.5) : 55;
+                const wMax = validW.length > 0 ? Math.ceil(Math.max(...validW) + 1.5) : 75;
+                const aMin = validA.length > 0 ? Math.floor(Math.min(...validA) - 2.5) : 70;
+                const aMax = validA.length > 0 ? Math.ceil(Math.max(...validA) + 2.5) : 90;
+
+                weekdayChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartLabels,
+                        datasets: [
+                            {
+                                label: `体重 (kg) - ${weekNames[dayIndex]}曜`,
+                                data: chartWeights,
+                                borderColor: 'rgb(79, 70, 229)',
+                                backgroundColor: 'rgba(79, 70, 229, 0.65)',
+                                yAxisID: 'y-weight',
+                                maxBarThickness: 14,
+                            },
+                            {
+                                type: 'line',
+                                label: `ウエスト (cm) - ${weekNames[dayIndex]}曜`,
+                                data: chartWaists,
+                                borderColor: 'rgb(16, 185, 129)',
+                                backgroundColor: 'transparent',
+                                yAxisID: 'y-waist',
+                                tension: 0,
+                                fill: false,
+                                spanGaps: true
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            'y-weight': {
+                                type: 'linear',
+                                position: 'left',
+                                beginAtZero: false,
+                                min: wMin,
+                                max: wMax,
+                                title: { display: true, text: '体重 (kg)' }
+                            },
+                            'y-waist': {
+                                type: 'linear',
+                                position: 'right',
+                                beginAtZero: false,
+                                min: aMin,
+                                max: aMax,
+                                title: { display: true, text: '腹囲 (cm)' },
+                                grid: { drawOnChartArea: false }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 時系列推移グラフと履歴のレンダリング
         function renderTableAndChart() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             
-            // 履歴テーブル描画
             const tableBody = document.getElementById('history-table');
             tableBody.innerHTML = '';
             [...records].reverse().forEach(r => {
@@ -638,25 +931,20 @@
                 tableBody.appendChild(tr);
             });
 
-            // 今日（または最新データ日付）をベースにした日付スパン自動補完
             const endDate = records.length > 0 ? new Date(records[records.length - 1].date) : new Date();
             endDate.setHours(23, 59, 59, 999);
 
             const startDate = new Date(endDate);
             startDate.setDate(endDate.getDate() - selectedPeriod + 1);
 
-            // 基準日Mapを作成して検索効率を高める
             const recordMap = {};
-            records.forEach(r => {
-                recordMap[r.date] = r;
-            });
+            records.forEach(r => { recordMap[r.date] = r; });
 
             let chartLabels = [];
             let chartWeights = [];
             let chartWaists = [];
 
             if (selectedPeriod === 7 || selectedPeriod === 30) {
-                // 1日刻みでの完全なカレンダー穴埋め
                 let cur = new Date(startDate);
                 while (cur <= endDate) {
                     const yyyy = cur.getFullYear();
@@ -670,14 +958,12 @@
                         chartWeights.push(r.weight !== undefined && r.weight !== null ? r.weight : null);
                         chartWaists.push(r.waist !== undefined && r.waist !== null ? r.waist : null);
                     } else {
-                        // データがない日はプレースホルダー(null)を入れて枠だけ確保
                         chartWeights.push(null);
                         chartWaists.push(null);
                     }
                     cur.setDate(cur.getDate() + 1);
                 }
             } else {
-                // 60日以上の長期スパン：指定グループ（7日または30日）に綺麗に分割
                 const spanDays = (selectedPeriod === 60 || selectedPeriod === 90) ? 7 : 30;
                 const blockCount = Math.ceil(selectedPeriod / spanDays);
 
@@ -690,7 +976,6 @@
                     bEnd.setDate(endDate.getDate() - i * spanDays);
                     bEnd.setHours(23, 59, 59, 999);
 
-                    // 期間内の有効データのみ抽出（空欄の日は除外して平均値を算出）
                     const blockRecords = records.filter(r => {
                         const d = new Date(r.date);
                         return d >= bStart && d <= bEnd;
@@ -715,7 +1000,6 @@
                 chartInstance.destroy();
             }
 
-            // 動的ズーム（オートスケーリング）の下限・上限
             const validWeights = chartWeights.filter(v => v !== null && v !== undefined && !isNaN(v));
             const validWaists = chartWaists.filter(v => v !== null && v !== undefined && !isNaN(v));
 
@@ -751,9 +1035,9 @@
                             borderColor: 'rgb(16, 185, 129)',
                             backgroundColor: 'transparent',
                             yAxisID: 'y-waist',
-                            tension: 0, 
+                            tension: 0,
                             fill: false,
-                            spanGaps: true // 【新規追加】データがない日(null)を自動架橋し、ウエストの線を繋ぐ
+                            spanGaps: true
                         }
                     ]
                 },
@@ -773,9 +1057,8 @@
                             min: weightMin,
                             max: weightMax,
                             ticks: {
-                                // 画面崩れを防ぐインテリジェント補助線
-                                stepSize: weightDiff < 10 ? 0.5 : 1.0, 
-                                autoSkip: weightDiff < 10 ? false : true 
+                                stepSize: weightDiff < 10 ? 0.5 : 1.0,
+                                autoSkip: weightDiff < 10 ? false : true
                             }
                         },
                         'y-waist': {
@@ -790,6 +1073,9 @@
                     }
                 }
             });
+
+            // 曜日別比較グラフも更新
+            renderWeekdayChart();
         }
 
         async function runPythonAnalysis() {
