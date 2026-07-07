@@ -421,7 +421,7 @@
             </div>
         </section>
 
-        <!-- 【完全新規追加】曜日別データ比較表 (数値一覧) -->
+        <!-- 曜日別データ比較表 (数値一覧) -->
         <section class="card">
             <h2 class="card-title" style="margin-bottom: 0.5rem;"><span>📊</span> 曜日別数値一覧 (比較・推移)</h2>
             <p class="card-desc">曜日ごとの平均値の比較や、特定の曜日だけの詳細推移データを数値で見比べられます。</p>
@@ -543,7 +543,6 @@
         let selectedPeriod = 30;
         let selectedWeekdayFilter = 'all';
         
-        // 【新規】テーブル用状態変数
         let selectedTablePeriod = 30;
         let selectedTableWeekday = 'all';
 
@@ -841,7 +840,7 @@
             renderWeekdayChart();
         }
 
-        // 【新規実装】曜日テーブル用：期間タブ切り替え
+        // 曜日テーブル用：期間タブ切り替え
         function changeTablePeriod(days) {
             selectedTablePeriod = days;
             const periods = [7, 30, 180, 365];
@@ -856,7 +855,7 @@
             renderWeekdayTable();
         }
 
-        // 【新規実装】曜日テーブル用：曜日タブ切り替え
+        // 曜日テーブル用：曜日タブ切り替え
         function changeTableWeekday(day) {
             selectedTableWeekday = day;
             const weekdays = ['all', 1, 2, 3, 4, 5, 6, 0];
@@ -1104,25 +1103,22 @@
             }
         }
 
-        // 【新規実装】曜日データ比較テーブル (数値一覧) の生成ロジック
+        // 曜日データ比較テーブル
         function renderWeekdayTable() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             const table = document.getElementById('weekday-comparison-table');
             const weekNames = ['日', '月', '火', '水', '木', '金', '土'];
             
-            table.innerHTML = ''; // テーブルをクリア
+            table.innerHTML = '';
 
-            // 今日を基準にしたカットオフ日の計算
             const now = new Date();
             now.setHours(23, 59, 59, 999);
             const cutoffDate = new Date();
             cutoffDate.setDate(now.getDate() - selectedTablePeriod + 1);
 
-            // 指定された期間のデータにフィルタリング
             const periodRecords = records.filter(r => new Date(r.date) >= cutoffDate);
 
             if (selectedTableWeekday === 'all') {
-                // 1. 全曜日一覧表示モード
                 table.innerHTML = `
                     <thead>
                         <tr>
@@ -1136,8 +1132,6 @@
                 `;
                 
                 const tbody = document.getElementById('weekday-table-body');
-                
-                // 月曜(1)からスタートして日曜日(0)で終わる順番に並べる
                 const weekdayOrder = [1, 2, 3, 4, 5, 6, 0];
                 
                 weekdayOrder.forEach(dayIndex => {
@@ -1159,7 +1153,6 @@
                 });
 
             } else {
-                // 2. 特定曜日だけの詳細推移リスト表示モード
                 const dayIndex = parseInt(selectedTableWeekday);
                 table.innerHTML = `
                     <thead>
@@ -1174,8 +1167,6 @@
                 `;
 
                 const tbody = document.getElementById('weekday-table-body');
-                
-                // 該当曜日のデータのみを最新（降順）に並べ替えて表示
                 const filtered = periodRecords.filter(r => new Date(r.date).getDay() === dayIndex).reverse();
 
                 if (filtered.length === 0) {
@@ -1197,16 +1188,21 @@
             }
         }
 
-        // 時系列グラフおよび履歴
+        // 時系列推移グラフと履歴（曜日表示対応）
         function renderTableAndChart() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
+            const weekNames = ['日', '月', '火', '水', '木', '金', '土'];
             
             const tableBody = document.getElementById('history-table');
             tableBody.innerHTML = '';
             [...records].reverse().forEach(r => {
+                // 【新規追加】日付から自動的に曜日情報を算出・フォーマット化
+                const dayOfWeek = weekNames[new Date(r.date).getDay()];
+                const dateWithDay = `${r.date} (${dayOfWeek})`;
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td style="font-weight: 600; color: #475569;">${r.date}</td>
+                    <td style="font-weight: 600; color: #475569;">${dateWithDay}</td>
                     <td style="font-weight: 600;">${r.weight} kg</td>
                     <td>${r.waist ? r.waist + ' cm' : '-'}</td>
                     <td>
@@ -1359,7 +1355,6 @@
                 }
             });
 
-            // 曜日別チャート及び、新規新設の【曜日別テーブル】をどちらもレンダリング
             renderWeekdayChart();
             renderWeekdayTable();
         }
