@@ -11,7 +11,6 @@
     
     <!-- CDNリソースの読み込み -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
@@ -238,90 +237,11 @@
             position: relative;
             user-select: none;
             touch-action: pan-y;
+            cursor: grab;
         }
 
-        /* モーダル（大画面グラフ表示） */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background-color: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(8px);
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 1rem;
-        }
-
-        .modal-card {
-            background-color: white;
-            width: 100%;
-            max-width: 600px;
-            border-radius: 1.75rem;
-            padding: 1.25rem;
-            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            position: relative;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        }
-
-        .modal-title-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .modal-title {
-            font-size: 1rem;
-            font-weight: 700;
-            color: var(--text-main);
-        }
-
-        .modal-sub-date {
-            font-size: 11px;
-            color: var(--primary);
-            font-weight: 700;
-            margin-top: 0.2rem;
-        }
-
-        .modal-close-btn {
-            background-color: #f1f5f9;
-            border: none;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            font-size: 1rem;
-            font-weight: 700;
-            color: #64748b;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-chart-container {
-            width: 100%;
-            height: 320px;
-            position: relative;
-            touch-action: none;
-        }
-
-        .swipe-hint {
-            text-align: center;
-            font-size: 10px;
-            color: var(--text-muted);
-            font-weight: 600;
-            line-height: 1.4;
+        .chart-container:active {
+            cursor: grabbing;
         }
 
         /* QRコードコンテナ */
@@ -476,11 +396,14 @@
             </form>
         </section>
 
-        <!-- 推移グラフ (長押しで大画面起動) -->
+        <!-- 推移グラフ (スワイプでシームレス移動) -->
         <section class="card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <h2 class="card-title" style="margin-bottom: 0;"><span>📈</span> 体組成推移</h2>
-                <span style="font-size: 10px; color: var(--text-muted); font-weight: 600;">🔍 グラフ長押しで拡大</span>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                <div style="display: flex; flex-direction: column;">
+                    <h2 class="card-title" style="margin-bottom: 0;"><span>📈</span> 体組成推移</h2>
+                    <span id="chart-range-text" style="font-size: 10px; color: var(--primary); font-weight: 700; margin-top: 0.2rem;">範囲: --</span>
+                </div>
+                <span style="font-size: 10px; color: var(--text-muted); font-weight: 600;">👈👉 左右スワイプでスライド</span>
             </div>
             <div class="period-container">
                 <button type="button" onclick="changePeriod(7)" id="btn-7" class="btn-period">7日</button>
@@ -601,7 +524,7 @@
 
         <!-- 過去の履歴 (タップでその曜日をハイライト連動) -->
         <section class="card">
-            <div style="display: flex; justify-between; align-items: center; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                 <h2 class="card-title" style="margin-bottom: 0;"><span>📋</span> 過去の履歴</h2>
                 <button type="button" onclick="clearAllData()" class="delete-link" style="font-size: 11px;">データを全消去</button>
             </div>
@@ -624,63 +547,24 @@
 
     </main>
 
-    <!-- 大画面グラフ拡大用モーダルダイアログ -->
-    <div id="chart-modal" class="modal-overlay hidden">
-        <div class="modal-card" id="modal-card">
-            <div class="modal-header">
-                <div class="modal-title-group">
-                    <span class="modal-title">📈 大画面体組成推移</span>
-                    <span class="modal-sub-date" id="modal-sub-date">範囲: --</span>
-                </div>
-                <button type="button" class="modal-close-btn" onclick="closeChartModal()">✕</button>
-            </div>
-            
-            <div class="period-container" style="margin-bottom: 0;">
-                <button type="button" onclick="changePeriod(7)" id="modal-btn-7" class="btn-period">7日</button>
-                <button type="button" onclick="changePeriod(30)" id="modal-btn-30" class="btn-period active">30日</button>
-                <button type="button" onclick="changePeriod(60)" id="modal-btn-60" class="btn-period">60日</button>
-                <button type="button" onclick="changePeriod(90)" id="modal-btn-90" class="btn-period">90日</button>
-                <button type="button" onclick="changePeriod(180)" id="modal-btn-180" class="btn-period">180日</button>
-                <button type="button" onclick="changePeriod(365)" id="modal-btn-365" class="btn-period">365日</button>
-            </div>
-
-            <div class="modal-chart-container" id="modal-chart-wrapper">
-                <canvas id="modalWeightChart"></canvas>
-            </div>
-            
-            <p class="swipe-hint">👈 1本指スワイプで過去/未来へタイムトラベル<br>🔍 2本指ピンチイン/アウトでズーム操作・ドラッグ移動可能</p>
-        </div>
-    </div>
-
     <script>
-        // Chart.js Zoom プラグインの明示的登録
-        if (typeof ChartZoom !== 'undefined') {
-            Chart.register(ChartZoom);
-        } else if (window['chartjs-plugin-zoom']) {
-            Chart.register(window['chartjs-plugin-zoom']);
-        }
-
         let pyodideInstance = null;
         let chartInstance = null;
-        let modalChartInstance = null;
         let weekdayChartInstance = null;
         
         let selectedPeriod = 30;
-        let selectedWeekdayFilter = 'all'; // ハイライト指定用 (all または 0〜6)
+        let selectedWeekdayFilter = 'all';
         let selectedTablePeriod = 30;
         let selectedTableWeekday = 'all';
 
-        let chartOffsetIndex = 0; // 時間軸シフト用
+        // シームレス・スライド用のシフト日（単位）数
+        let chartOffsetDays = 0;
 
         const weekNames = ['日', '月', '火', '水', '木', '金', '土'];
-        
-        // 通常時の単色カラー
         const defaultBarColor = 'rgba(79, 70, 229, 0.65)';
         const defaultBarBorder = 'rgb(79, 70, 229)';
-        
-        // 特定曜日ハイライト時のアクセントカラー（鮮やかなオレンジ）
         const highlightBarColor = 'rgba(245, 158, 11, 0.95)';
-        const dimmedBarColor = 'rgba(79, 70, 229, 0.2)'; // 他の曜日用
+        const dimmedBarColor = 'rgba(79, 70, 229, 0.2)';
 
         window.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('input-date').valueAsDate = new Date();
@@ -688,88 +572,71 @@
             loadProfile();
             loadGithubSettings();
             renderTableAndChart();
-            setupLongPressGesture();
-            setupSwipeGesture();
+            setupSeamlessSwipeGesture();
             await initPyodide();
         });
 
-        // 1. グラフ長押し検知
-        function setupLongPressGesture() {
+        // シームレスなタッチスライド（1本指ドラッグ追従）ロジック
+        function setupSeamlessSwipeGesture() {
             const wrapper = document.getElementById('main-chart-wrapper');
-            let timer = null;
-
-            const start = () => {
-                timer = setTimeout(() => {
-                    if (navigator.vibrate) navigator.vibrate(50);
-                    openChartModal();
-                }, 700);
-            };
-
-            const cancel = () => {
-                if (timer) clearTimeout(timer);
-            };
-
-            wrapper.addEventListener('touchstart', start, { passive: true });
-            wrapper.addEventListener('touchend', cancel, { passive: true });
-            wrapper.addEventListener('touchmove', cancel, { passive: true });
-            
-            wrapper.addEventListener('mousedown', start);
-            wrapper.addEventListener('mouseup', cancel);
-            wrapper.addEventListener('mouseleave', cancel);
-        }
-
-        // 2. モーダル大画面内での「1本指スワイプ過去/未来移動」
-        function setupSwipeGesture() {
-            const modalWrapper = document.getElementById('modal-chart-wrapper');
             let startX = 0;
             let startY = 0;
+            let initialOffsetDays = 0;
+            let isDragging = false;
 
-            modalWrapper.addEventListener('touchstart', (e) => {
-                if (e.touches.length === 1) {
-                    startX = e.touches[0].clientX;
-                    startY = e.touches[0].clientY;
-                }
-            }, { passive: true });
+            // スライド感度の設定（ピクセル数からシフト単位への変換倍率）
+            const getPxPerUnit = () => {
+                const width = wrapper.clientWidth || 320;
+                // 表示期間に応じて1ユニット（日・週・月）あたりのドット数を決定
+                if (selectedPeriod === 7) return width / 7;
+                if (selectedPeriod === 30) return width / 18;
+                if (selectedPeriod === 60 || selectedPeriod === 90) return width / 10;
+                return width / 8; // 180, 365
+            };
 
-            modalWrapper.addEventListener('touchend', (e) => {
-                if (e.changedTouches.length === 1) {
-                    const endX = e.changedTouches[0].clientX;
-                    const endY = e.changedTouches[0].clientY;
-                    const diffX = endX - startX;
-                    const diffY = endY - startY;
+            const handleTouchStart = (e) => {
+                if (e.touches && e.touches.length > 1) return; // 複数指はスルー
+                isDragging = true;
+                const touch = e.touches ? e.touches[0] : e;
+                startX = touch.clientX;
+                startY = touch.clientY;
+                initialOffsetDays = chartOffsetDays;
+            };
 
-                    if (Math.abs(diffX) > 40 && Math.abs(diffX) > Math.abs(diffY) * 1.2) {
-                        if (diffX < 0) {
-                            // 左スワイプ ➡️ 過去へ
-                            chartOffsetIndex++;
-                            if (navigator.vibrate) navigator.vibrate(30);
-                            renderTableAndChart();
-                            renderModalChart();
-                        } else {
-                            // 右スワイプ ➡️ 未来へ
-                            if (chartOffsetIndex > 0) {
-                                chartOffsetIndex--;
-                                if (navigator.vibrate) navigator.vibrate(30);
-                                renderTableAndChart();
-                                renderModalChart();
-                            }
-                        }
+            const handleTouchMove = (e) => {
+                if (!isDragging) return;
+                const touch = e.touches ? e.touches[0] : e;
+                const diffX = touch.clientX - startX;
+                const diffY = touch.clientY - startY;
+
+                // 縦スクロールと斜め移動の誤作動防止
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    const pxPerUnit = getPxPerUnit();
+                    // ドラッグ量（ピクセル）から何日/何ブロック分シフトするかをシームレス計算
+                    const shiftUnits = Math.round(-diffX / pxPerUnit);
+                    const newOffset = initialOffsetDays + shiftUnits;
+
+                    // 未来側（0未満）には行かないよう安全制御
+                    if (newOffset >= 0 && newOffset !== chartOffsetDays) {
+                        chartOffsetDays = newOffset;
+                        renderTableAndChart();
                     }
                 }
-            }, { passive: true });
-        }
+            };
 
-        function openChartModal() {
-            document.getElementById('chart-modal').classList.remove('hidden');
-            renderModalChart();
-        }
+            const handleTouchEnd = () => {
+                isDragging = false;
+            };
 
-        function closeChartModal() {
-            document.getElementById('chart-modal').classList.add('hidden');
-            if (modalChartInstance) {
-                modalChartInstance.destroy();
-                modalChartInstance = null;
-            }
+            // タッチイベントの設定
+            wrapper.addEventListener('touchstart', handleTouchStart, { passive: true });
+            wrapper.addEventListener('touchmove', handleTouchMove, { passive: true });
+            wrapper.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+            // PCマウスマウスドラッグの設定
+            wrapper.addEventListener('mousedown', handleTouchStart);
+            window.addEventListener('mousemove', handleTouchMove);
+            window.addEventListener('mouseup', handleTouchEnd);
         }
 
         // URLデータインポート
@@ -1025,33 +892,24 @@
             document.getElementById('qr-container').classList.add('hidden');
         }
 
-        // 期間切り替え
+        // 期間切り替え（最新へリセット）
         function changePeriod(days) {
-            chartOffsetIndex = 0;
+            chartOffsetDays = 0;
             selectedPeriod = days;
             const periods = [7, 30, 60, 90, 180, 365];
             periods.forEach(p => {
                 const btn = document.getElementById(`btn-${p}`);
-                const modalBtn = document.getElementById(`modal-btn-${p}`);
-                
                 if (p === days) {
                     if (btn) btn.classList.add('active');
-                    if (modalBtn) modalBtn.classList.add('active');
                 } else {
                     if (btn) btn.classList.remove('active');
-                    if (modalBtn) modalBtn.classList.remove('active');
                 }
             });
 
             renderTableAndChart();
-            if (!document.getElementById('chart-modal').classList.contains('hidden')) {
-                renderModalChart();
-            }
         }
 
-        // 曜日別ハイライト切り替え（タップ連動）
         function changeWeekdayFilter(day) {
-            // 同じ曜日をもう一度タップしたら解除（allにする）
             if (selectedWeekdayFilter === day && day !== 'all') {
                 selectedWeekdayFilter = 'all';
             } else {
@@ -1287,7 +1145,7 @@
                                 label: `体重 (kg) - ${weekNames[dayIndex]}曜`,
                                 data: chartWeights,
                                 borderColor: 'rgb(79, 70, 229)',
-                                backgroundColor: highlightBarColor, // ハイライトカラー
+                                backgroundColor: highlightBarColor,
                                 yAxisID: 'y-weight',
                                 maxBarThickness: 14,
                             },
@@ -1372,7 +1230,7 @@
                     const isHighlighted = selectedWeekdayFilter !== 'all' && parseInt(selectedWeekdayFilter) === dayIndex;
 
                     const tr = document.createElement('tr');
-                    tr.style.backgroundColor = isHighlighted ? 'rgba(254, 243, 199, 0.9)' : 'transparent';
+                    tr.style.backgroundColor = isHighlighted ? 'rgba(254, 243, 199, 0.85)' : 'transparent';
                     tr.onclick = () => changeWeekdayFilter(dayIndex);
                     
                     tr.innerHTML = `
@@ -1421,7 +1279,7 @@
             }
         }
 
-        // 時系列推移データ作成コア関数
+        // 時系列推移データ作成コア関数 (シームレスオフセット追従対応)
         function buildChartDataPayload() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             const recordMap = {};
@@ -1439,8 +1297,9 @@
             const targetDayIdx = selectedWeekdayFilter === 'all' ? null : parseInt(selectedWeekdayFilter);
 
             if (selectedPeriod === 7 || selectedPeriod === 30) {
+                // シームレス・スライド対応: chartOffsetDays に基づき1日単位で滑らかに過去へシフト
                 const shiftEndDate = new Date(baseEndDate);
-                shiftEndDate.setDate(baseEndDate.getDate() - (selectedPeriod * chartOffsetIndex));
+                shiftEndDate.setDate(baseEndDate.getDate() - chartOffsetDays);
                 shiftEndDate.setHours(23, 59, 59, 999);
 
                 const shiftStartDate = new Date(shiftEndDate);
@@ -1460,13 +1319,12 @@
 
                     chartLabels.push(`${mm}-${dd}`);
 
-                    // 【新規実装】単色基本 ＋ 特定曜日選択時のみスマートハイライト
                     if (targetDayIdx === null) {
-                        barColors.push(defaultBarColor); // 通常単色
+                        barColors.push(defaultBarColor);
                     } else if (dayIdx === targetDayIdx) {
-                        barColors.push(highlightBarColor); // 選択曜日のみオレンジ
+                        barColors.push(highlightBarColor);
                     } else {
-                        barColors.push(dimmedBarColor); // 他は薄く減光
+                        barColors.push(dimmedBarColor);
                     }
 
                     const r = recordMap[dateStr];
@@ -1481,12 +1339,14 @@
                 }
 
             } else if (selectedPeriod === 60 || selectedPeriod === 90) {
+                // 週平均 (毎週日曜日起点) ＋ オフセット処理
                 const weeksCount = selectedPeriod === 60 ? 8 : 12;
                 
                 const lastSun = new Date(baseEndDate);
                 lastSun.setDate(baseEndDate.getDate() - baseEndDate.getDay());
                 lastSun.setHours(0, 0, 0, 0);
-                lastSun.setDate(lastSun.getDate() - (weeksCount * 7 * chartOffsetIndex));
+                // 1日単位のシフトを週に換算
+                lastSun.setDate(lastSun.getDate() - (chartOffsetDays * 7));
 
                 const firstSun = new Date(lastSun);
                 firstSun.setDate(lastSun.getDate() - ((weeksCount - 1) * 7));
@@ -1523,9 +1383,10 @@
                 }
 
             } else {
+                // 月平均 (毎月1日起点) ＋ オフセット処理
                 const monthsCount = selectedPeriod === 180 ? 6 : 12;
 
-                const lastMonthDate = new Date(baseEndDate.getFullYear(), baseEndDate.getMonth() - (monthsCount * chartOffsetIndex), 1);
+                const lastMonthDate = new Date(baseEndDate.getFullYear(), baseEndDate.getMonth() - chartOffsetDays, 1);
                 const firstMonthDate = new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() - monthsCount + 1, 1);
 
                 const fmtYM = (d) => `${d.getFullYear()}年${(d.getMonth() + 1).toString().padStart(2, '0')}月`;
@@ -1558,7 +1419,7 @@
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             const targetDayIdx = selectedWeekdayFilter === 'all' ? null : parseInt(selectedWeekdayFilter);
             
-            // 過去履歴テーブルのレンダリング (選択曜日のみソフトイエローハイライト)
+            // 過去履歴テーブルのレンダリング
             const tableBody = document.getElementById('history-table');
             tableBody.innerHTML = '';
             [...records].reverse().forEach(r => {
@@ -1567,15 +1428,12 @@
                 const dateWithDay = `${r.date} (${dayOfWeek})`;
 
                 const tr = document.createElement('tr');
-                
-                // 特定曜日が選択されている場合、その曜日の行だけをハイライト表示
                 if (targetDayIdx !== null && dayIdx === targetDayIdx) {
-                    tr.style.backgroundColor = 'rgba(254, 243, 199, 0.85)'; // ソフトオレンジ/イエロー
+                    tr.style.backgroundColor = 'rgba(254, 243, 199, 0.85)';
                 } else {
                     tr.style.backgroundColor = 'transparent';
                 }
 
-                // 行をタップするとその曜日をハイライト選択
                 tr.onclick = () => changeWeekdayFilter(dayIdx);
 
                 tr.innerHTML = `
@@ -1589,7 +1447,10 @@
                 tableBody.appendChild(tr);
             });
 
-            const { chartLabels, chartWeights, chartWaists, barColors } = buildChartDataPayload();
+            const { chartLabels, chartWeights, chartWaists, barColors, rangeTitleStr } = buildChartDataPayload();
+
+            // サブタイトルに現在の具体的な表示範囲を設定
+            document.getElementById('chart-range-text').innerText = `範囲: ${rangeTitleStr}`;
 
             if (chartInstance) {
                 chartInstance.destroy();
@@ -1666,99 +1527,6 @@
 
             renderWeekdayChart();
             renderWeekdayTable();
-        }
-
-        // 大画面モーダル用グラフ描画 (ピンチズーム・パン完全対応)
-        function renderModalChart() {
-            const { chartLabels, chartWeights, chartWaists, barColors, rangeTitleStr } = buildChartDataPayload();
-
-            document.getElementById('modal-sub-date').innerText = `表示範囲: ${rangeTitleStr}`;
-
-            if (modalChartInstance) {
-                modalChartInstance.destroy();
-            }
-
-            const validWeights = chartWeights.filter(v => v !== null && v !== undefined && !isNaN(v));
-            const validWaists = chartWaists.filter(v => v !== null && v !== undefined && !isNaN(v));
-
-            const weightMin = validWeights.length > 0 ? Math.floor(Math.min(...validWeights) - 1.5) : 55;
-            const weightMax = validWeights.length > 0 ? Math.ceil(Math.max(...validWeights) + 1.5) : 75;
-            const waistMin = validWaists.length > 0 ? Math.floor(Math.min(...validWaists) - 2.5) : 70;
-            const waistMax = validWaists.length > 0 ? Math.ceil(Math.max(...validWaists) + 2.5) : 90;
-
-            const weightDiff = weightMax - weightMin;
-            const ctx = document.getElementById('modalWeightChart').getContext('2d');
-
-            modalChartInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: chartLabels,
-                    datasets: [
-                        {
-                            type: 'bar',
-                            label: '体重 (kg)',
-                            data: chartWeights,
-                            borderColor: defaultBarBorder,
-                            backgroundColor: barColors,
-                            yAxisID: 'y-weight',
-                            barThickness: 'flex',
-                            maxBarThickness: 18,
-                        },
-                        {
-                            type: 'line',
-                            label: 'ウエスト (cm)',
-                            data: chartWaists,
-                            borderColor: 'rgb(16, 185, 129)',
-                            backgroundColor: 'transparent',
-                            yAxisID: 'y-waist',
-                            tension: 0,
-                            fill: false,
-                            spanGaps: true
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        zoom: {
-                            zoom: {
-                                wheel: { enabled: true },
-                                pinch: { enabled: true },
-                                mode: 'x'
-                            },
-                            pan: {
-                                enabled: true,
-                                mode: 'x'
-                            }
-                        }
-                    },
-                    scales: {
-                        'y-weight': {
-                            type: 'linear',
-                            position: 'left',
-                            title: { display: true, text: '体重 (kg)', color: 'rgb(79, 70, 229)', font: { weight: 'bold' } },
-                            grid: { drawOnChartArea: true, color: 'rgba(0, 0, 0, 0.05)' },
-                            beginAtZero: false,
-                            min: weightMin,
-                            max: weightMax,
-                            ticks: {
-                                stepSize: weightDiff < 10 ? 0.5 : 1.0,
-                                autoSkip: weightDiff < 10 ? false : true
-                            }
-                        },
-                        'y-waist': {
-                            type: 'linear',
-                            position: 'right',
-                            title: { display: true, text: 'ウエスト (cm)', color: 'rgb(16, 185, 129)', font: { weight: 'bold' } },
-                            grid: { drawOnChartArea: false },
-                            beginAtZero: false,
-                            min: waistMin,
-                            max: waistMax
-                        }
-                    }
-                }
-            });
         }
 
         async function runPythonAnalysis() {
