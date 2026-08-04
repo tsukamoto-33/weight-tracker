@@ -396,7 +396,7 @@
             </form>
         </section>
 
-        <!-- 推移グラフ (直感的スワイプでドラッグ移動) -->
+        <!-- 推移グラフ (直感的スワイプでドラッグ移動 ＋ 可変スケール設定) -->
         <section class="card">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
                 <div style="display: flex; flex-direction: column;">
@@ -405,6 +405,7 @@
                 </div>
                 <span style="font-size: 10px; color: var(--text-muted); font-weight: 600;">👈👉 左右スワイプでスライド</span>
             </div>
+            
             <div class="period-container">
                 <button type="button" onclick="changePeriod(7)" id="btn-7" class="btn-period">7日</button>
                 <button type="button" onclick="changePeriod(30)" id="btn-30" class="btn-period active">30日</button>
@@ -413,6 +414,35 @@
                 <button type="button" onclick="changePeriod(180)" id="btn-180" class="btn-period">180日</button>
                 <button type="button" onclick="changePeriod(365)" id="btn-365" class="btn-period">365日</button>
             </div>
+
+            <!-- 【新規実装】Y軸スケール（表示範囲）の手動調整UI -->
+            <details class="card-desc" style="background-color: var(--input-bg); padding: 0.65rem 0.85rem; border-radius: 0.85rem; border: 1px solid #e2e8f0; cursor: pointer; margin-bottom: 1rem;">
+                <summary style="font-weight: 700; color: #475569; font-size: 11px;">⚙️ 軸スケール（表示範囲）の手動可変設定</summary>
+                <div style="margin-top: 0.65rem; display: flex; flex-direction: column; gap: 0.5rem;" onclick="event.stopPropagation();">
+                    <div class="grid-2" style="margin-bottom: 0;">
+                        <div>
+                            <label class="label">体重 最小 (kg)</label>
+                            <input type="number" id="scale-w-min" step="0.5" class="input" style="padding: 0.4rem 0.6rem; font-size: 12px;" onchange="updateScaleSettings()">
+                        </div>
+                        <div>
+                            <label class="label">体重 最大 (kg)</label>
+                            <input type="number" id="scale-w-max" step="0.5" class="input" style="padding: 0.4rem 0.6rem; font-size: 12px;" onchange="updateScaleSettings()">
+                        </div>
+                    </div>
+                    <div class="grid-2" style="margin-bottom: 0;">
+                        <div>
+                            <label class="label">ウエスト 最小 (cm)</label>
+                            <input type="number" id="scale-a-min" step="1.0" class="input" style="padding: 0.4rem 0.6rem; font-size: 12px;" onchange="updateScaleSettings()">
+                        </div>
+                        <div>
+                            <label class="label">ウエスト 最大 (cm)</label>
+                            <input type="number" id="scale-a-max" step="1.0" class="input" style="padding: 0.4rem 0.6rem; font-size: 12px;" onchange="updateScaleSettings()">
+                        </div>
+                    </div>
+                    <button type="button" onclick="resetScaleSettings()" class="link-text" style="text-align: right; color: var(--primary); font-weight: 700;">↺ 自動設定に戻す</button>
+                </div>
+            </details>
+
             <div class="chart-container" id="main-chart-wrapper">
                 <canvas id="weightChart"></canvas>
             </div>
@@ -629,6 +659,48 @@
             wrapper.addEventListener('mousedown', handleTouchStart);
             window.addEventListener('mousemove', handleTouchMove);
             window.addEventListener('mouseup', handleTouchEnd);
+        }
+
+        // Y軸スケール（表示範囲）のユーザー可変設定ロジック
+        function updateScaleSettings() {
+            const wMin = parseFloat(document.getElementById('scale-w-min').value);
+            const wMax = parseFloat(document.getElementById('scale-w-max').value);
+            const aMin = parseFloat(document.getElementById('scale-a-min').value);
+            const aMax = parseFloat(document.getElementById('scale-a-max').value);
+
+            const customScales = {
+                wMin: !isNaN(wMin) ? wMin : null,
+                wMax: !isNaN(wMax) ? wMax : null,
+                aMin: !isNaN(aMin) ? aMin : null,
+                aMax: !isNaN(aMax) ? aMax : null
+            };
+
+            localStorage.setItem('wt_custom_scales', JSON.stringify(customScales));
+            renderTableAndChart();
+        }
+
+        function resetScaleSettings() {
+            localStorage.removeItem('wt_custom_scales');
+            document.getElementById('scale-w-min').value = '';
+            document.getElementById('scale-w-max').value = '';
+            document.getElementById('scale-a-min').value = '';
+            document.getElementById('scale-a-max').value = '';
+            renderTableAndChart();
+        }
+
+        function loadScaleSettingsUI(calcWMin, calcWMax, calcAMin, calcAMax) {
+            const scales = JSON.parse(localStorage.getItem('wt_custom_scales') || '{}');
+            
+            // 手動値があればそれを、なければ自動計算値をプレースホルダー・初期値として表示
+            document.getElementById('scale-w-min').value = scales.wMin !== null && scales.wMin !== undefined ? scales.wMin : '';
+            document.getElementById('scale-w-max').value = scales.wMax !== null && scales.wMax !== undefined ? scales.wMax : '';
+            document.getElementById('scale-a-min').value = scales.aMin !== null && scales.aMin !== undefined ? scales.aMin : '';
+            document.getElementById('scale-a-max').value = scales.aMax !== null && scales.aMax !== undefined ? scales.aMax : '';
+
+            document.getElementById('scale-w-min').placeholder = calcWMin;
+            document.getElementById('scale-w-max').placeholder = calcWMax;
+            document.getElementById('scale-a-min').placeholder = calcAMin;
+            document.getElementById('scale-a-max').placeholder = calcAMax;
         }
 
         // URLデータインポート
@@ -1443,15 +1515,25 @@
                 chartInstance.destroy();
             }
 
-            // 【完全固定化】全データ（全記録）を基準に最小値・最大値を算出し、スワイプ移動時もY軸のスケールを完全固定する
+            // 【完全固定化 ＋ 可変スケール設定の優先反映】
+            const customScales = JSON.parse(localStorage.getItem('wt_custom_scales') || '{}');
+
             const allWeights = records.map(r => r.weight).filter(v => v !== null && v !== undefined && !isNaN(v));
             const allWaists = records.map(r => r.waist).filter(v => v !== null && v !== undefined && !isNaN(v));
 
-            const weightMin = allWeights.length > 0 ? Math.floor(Math.min(...allWeights) - 1.5) : 55;
-            const weightMax = allWeights.length > 0 ? Math.ceil(Math.max(...allWeights) + 1.5) : 75;
+            const calcWMin = allWeights.length > 0 ? Math.floor(Math.min(...allWeights) - 1.5) : 55;
+            const calcWMax = allWeights.length > 0 ? Math.ceil(Math.max(...allWeights) + 1.5) : 75;
+            const calcAMin = allWaists.length > 0 ? Math.floor(Math.min(...allWaists) - 2.5) : 70;
+            const calcAMax = allWaists.length > 0 ? Math.ceil(Math.max(...allWaists) + 2.5) : 90;
 
-            const waistMin = allWaists.length > 0 ? Math.floor(Math.min(...allWaists) - 2.5) : 70;
-            const waistMax = allWaists.length > 0 ? Math.ceil(Math.max(...allWaists) + 2.5) : 90;
+            // UI設定フォームの初期値/プレースホルダー更新
+            loadScaleSettingsUI(calcWMin, calcWMax, calcAMin, calcAMax);
+
+            // ユーザー指定のカスタム値があれば優先、なければ全データ自動計算値を使用
+            const weightMin = customScales.wMin !== null && customScales.wMin !== undefined ? customScales.wMin : calcWMin;
+            const weightMax = customScales.wMax !== null && customScales.wMax !== undefined ? customScales.wMax : calcWMax;
+            const waistMin = customScales.aMin !== null && customScales.aMin !== undefined ? customScales.aMin : calcAMin;
+            const waistMax = customScales.aMax !== null && customScales.aMax !== undefined ? customScales.aMax : calcAMax;
 
             const weightDiff = weightMax - weightMin;
             const ctx = document.getElementById('weightChart').getContext('2d');
