@@ -1,11 +1,10 @@
-const CACHE_NAME = 'weight-tracker-v22';
+const CACHE_NAME = 'weight-tracker-v23';
 const ASSETS = [
   './',
   './index.html',
   './main.py',
   './manifest.json',
   'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js',
   'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js',
   'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.asm.js',
   'https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide-core.capnp',
