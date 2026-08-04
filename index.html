@@ -396,7 +396,7 @@
             </form>
         </section>
 
-        <!-- 推移グラフ (スワイプでシームレス移動) -->
+        <!-- 推移グラフ (直感的スワイプでドラッグ移動) -->
         <section class="card">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
                 <div style="display: flex; flex-direction: column;">
@@ -557,7 +557,7 @@
         let selectedTablePeriod = 30;
         let selectedTableWeekday = 'all';
 
-        // シームレス・スライド用のシフト日（単位）数
+        // シームレス・スライド用のシフト日数
         let chartOffsetDays = 0;
 
         const weekNames = ['日', '月', '火', '水', '木', '金', '土'];
@@ -576,7 +576,7 @@
             await initPyodide();
         });
 
-        // シームレスなタッチスライド（1本指ドラッグ追従）ロジック
+        // 1. 直感的なスクロール感度に反転・補正したタッチスライドロジック
         function setupSeamlessSwipeGesture() {
             const wrapper = document.getElementById('main-chart-wrapper');
             let startX = 0;
@@ -584,18 +584,16 @@
             let initialOffsetDays = 0;
             let isDragging = false;
 
-            // スライド感度の設定（ピクセル数からシフト単位への変換倍率）
             const getPxPerUnit = () => {
                 const width = wrapper.clientWidth || 320;
-                // 表示期間に応じて1ユニット（日・週・月）あたりのドット数を決定
                 if (selectedPeriod === 7) return width / 7;
                 if (selectedPeriod === 30) return width / 18;
                 if (selectedPeriod === 60 || selectedPeriod === 90) return width / 10;
-                return width / 8; // 180, 365
+                return width / 8;
             };
 
             const handleTouchStart = (e) => {
-                if (e.touches && e.touches.length > 1) return; // 複数指はスルー
+                if (e.touches && e.touches.length > 1) return;
                 isDragging = true;
                 const touch = e.touches ? e.touches[0] : e;
                 startX = touch.clientX;
@@ -609,14 +607,15 @@
                 const diffX = touch.clientX - startX;
                 const diffY = touch.clientY - startY;
 
-                // 縦スクロールと斜め移動の誤作動防止
                 if (Math.abs(diffX) > Math.abs(diffY)) {
                     const pxPerUnit = getPxPerUnit();
-                    // ドラッグ量（ピクセル）から何日/何ブロック分シフトするかをシームレス計算
-                    const shiftUnits = Math.round(-diffX / pxPerUnit);
+                    
+                    // 【符号反転修正】
+                    // 指を「左から右」へ動かした時（diffX > 0 ＝ 右へ引っ張る）：過去のデータ（Offset増加）を見る
+                    // 指を「右から左」へ動かした時（diffX < 0 ＝ 左へ引っ張る）：未来のデータ（Offset減少）へ戻る
+                    const shiftUnits = Math.round(diffX / pxPerUnit);
                     const newOffset = initialOffsetDays + shiftUnits;
 
-                    // 未来側（0未満）には行かないよう安全制御
                     if (newOffset >= 0 && newOffset !== chartOffsetDays) {
                         chartOffsetDays = newOffset;
                         renderTableAndChart();
@@ -628,12 +627,10 @@
                 isDragging = false;
             };
 
-            // タッチイベントの設定
             wrapper.addEventListener('touchstart', handleTouchStart, { passive: true });
             wrapper.addEventListener('touchmove', handleTouchMove, { passive: true });
             wrapper.addEventListener('touchend', handleTouchEnd, { passive: true });
 
-            // PCマウスマウスドラッグの設定
             wrapper.addEventListener('mousedown', handleTouchStart);
             window.addEventListener('mousemove', handleTouchMove);
             window.addEventListener('mouseup', handleTouchEnd);
@@ -892,7 +889,7 @@
             document.getElementById('qr-container').classList.add('hidden');
         }
 
-        // 期間切り替え（最新へリセット）
+        // 期間切り替え
         function changePeriod(days) {
             chartOffsetDays = 0;
             selectedPeriod = days;
@@ -948,7 +945,7 @@
             const weekdays = ['all', 1, 2, 3, 4, 5, 6, 0];
             weekdays.forEach(w => {
                 const btn = document.getElementById(`btn-tw-${w}`);
-                if (w === day) {
+                if (w === selectedTableWeekday) {
                     btn.classList.add('active');
                 } else {
                     btn.classList.remove('active');
@@ -1279,7 +1276,7 @@
             }
         }
 
-        // 時系列推移データ作成コア関数 (シームレスオフセット追従対応)
+        // 時系列推移データ作成コア関数
         function buildChartDataPayload() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             const recordMap = {};
@@ -1297,7 +1294,6 @@
             const targetDayIdx = selectedWeekdayFilter === 'all' ? null : parseInt(selectedWeekdayFilter);
 
             if (selectedPeriod === 7 || selectedPeriod === 30) {
-                // シームレス・スライド対応: chartOffsetDays に基づき1日単位で滑らかに過去へシフト
                 const shiftEndDate = new Date(baseEndDate);
                 shiftEndDate.setDate(baseEndDate.getDate() - chartOffsetDays);
                 shiftEndDate.setHours(23, 59, 59, 999);
@@ -1339,13 +1335,11 @@
                 }
 
             } else if (selectedPeriod === 60 || selectedPeriod === 90) {
-                // 週平均 (毎週日曜日起点) ＋ オフセット処理
                 const weeksCount = selectedPeriod === 60 ? 8 : 12;
                 
                 const lastSun = new Date(baseEndDate);
                 lastSun.setDate(baseEndDate.getDate() - baseEndDate.getDay());
                 lastSun.setHours(0, 0, 0, 0);
-                // 1日単位のシフトを週に換算
                 lastSun.setDate(lastSun.getDate() - (chartOffsetDays * 7));
 
                 const firstSun = new Date(lastSun);
@@ -1383,7 +1377,6 @@
                 }
 
             } else {
-                // 月平均 (毎月1日起点) ＋ オフセット処理
                 const monthsCount = selectedPeriod === 180 ? 6 : 12;
 
                 const lastMonthDate = new Date(baseEndDate.getFullYear(), baseEndDate.getMonth() - chartOffsetDays, 1);
@@ -1419,7 +1412,6 @@
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             const targetDayIdx = selectedWeekdayFilter === 'all' ? null : parseInt(selectedWeekdayFilter);
             
-            // 過去履歴テーブルのレンダリング
             const tableBody = document.getElementById('history-table');
             tableBody.innerHTML = '';
             [...records].reverse().forEach(r => {
@@ -1449,7 +1441,6 @@
 
             const { chartLabels, chartWeights, chartWaists, barColors, rangeTitleStr } = buildChartDataPayload();
 
-            // サブタイトルに現在の具体的な表示範囲を設定
             document.getElementById('chart-range-text').innerText = `範囲: ${rangeTitleStr}`;
 
             if (chartInstance) {
