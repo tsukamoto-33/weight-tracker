@@ -557,7 +557,6 @@
         let selectedTablePeriod = 30;
         let selectedTableWeekday = 'all';
 
-        // シームレス・スライド用のシフト日数
         let chartOffsetDays = 0;
 
         const weekNames = ['日', '月', '火', '水', '木', '金', '土'];
@@ -576,7 +575,7 @@
             await initPyodide();
         });
 
-        // 1. 直感的なスクロール感度に反転・補正したタッチスライドロジック
+        // タッチスライドロジック
         function setupSeamlessSwipeGesture() {
             const wrapper = document.getElementById('main-chart-wrapper');
             let startX = 0;
@@ -609,10 +608,6 @@
 
                 if (Math.abs(diffX) > Math.abs(diffY)) {
                     const pxPerUnit = getPxPerUnit();
-                    
-                    // 【符号反転修正】
-                    // 指を「左から右」へ動かした時（diffX > 0 ＝ 右へ引っ張る）：過去のデータ（Offset増加）を見る
-                    // 指を「右から左」へ動かした時（diffX < 0 ＝ 左へ引っ張る）：未来のデータ（Offset減少）へ戻る
                     const shiftUnits = Math.round(diffX / pxPerUnit);
                     const newOffset = initialOffsetDays + shiftUnits;
 
@@ -1412,6 +1407,7 @@
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             const targetDayIdx = selectedWeekdayFilter === 'all' ? null : parseInt(selectedWeekdayFilter);
             
+            // 過去履歴テーブルのレンダリング
             const tableBody = document.getElementById('history-table');
             tableBody.innerHTML = '';
             [...records].reverse().forEach(r => {
@@ -1447,13 +1443,15 @@
                 chartInstance.destroy();
             }
 
-            const validWeights = chartWeights.filter(v => v !== null && v !== undefined && !isNaN(v));
-            const validWaists = chartWaists.filter(v => v !== null && v !== undefined && !isNaN(v));
+            // 【完全固定化】全データ（全記録）を基準に最小値・最大値を算出し、スワイプ移動時もY軸のスケールを完全固定する
+            const allWeights = records.map(r => r.weight).filter(v => v !== null && v !== undefined && !isNaN(v));
+            const allWaists = records.map(r => r.waist).filter(v => v !== null && v !== undefined && !isNaN(v));
 
-            const weightMin = validWeights.length > 0 ? Math.floor(Math.min(...validWeights) - 1.5) : 55;
-            const weightMax = validWeights.length > 0 ? Math.ceil(Math.max(...validWeights) + 1.5) : 75;
-            const waistMin = validWaists.length > 0 ? Math.floor(Math.min(...validWaists) - 2.5) : 70;
-            const waistMax = validWaists.length > 0 ? Math.ceil(Math.max(...validWaists) + 2.5) : 90;
+            const weightMin = allWeights.length > 0 ? Math.floor(Math.min(...allWeights) - 1.5) : 55;
+            const weightMax = allWeights.length > 0 ? Math.ceil(Math.max(...allWeights) + 1.5) : 75;
+
+            const waistMin = allWaists.length > 0 ? Math.floor(Math.min(...allWaists) - 2.5) : 70;
+            const waistMax = allWaists.length > 0 ? Math.ceil(Math.max(...allWaists) + 2.5) : 90;
 
             const weightDiff = weightMax - weightMin;
             const ctx = document.getElementById('weightChart').getContext('2d');
