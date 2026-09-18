@@ -87,11 +87,26 @@
             color: white;
         }
 
-        /* メインコンテナ */
+        /* メインコンテナ（縦持ちはmax-w-md、横向き時はレスポンシブに自動ワイド化） */
         main {
             max-width: 440px;
             margin: 0 auto;
             padding: 1.5rem 1rem;
+            transition: max-width 0.3s;
+        }
+
+        /* 横画面（ランドスケープ）時のワイドパノラマレイアウト */
+        @media (orientation: landscape) and (max-height: 600px) {
+            main {
+                max-width: 96% !important;
+                padding: 1rem 0.5rem;
+            }
+            .chart-card {
+                padding: 1rem !important;
+            }
+            .chart-container {
+                height: 380px !important;
+            }
         }
 
         /* カード UI */
@@ -196,7 +211,7 @@
             transform: scale(0.98);
         }
 
-        /* 期間・表示項目切り替え */
+        /* タブコンテナ */
         .period-container {
             display: flex;
             gap: 0.35rem;
@@ -209,7 +224,7 @@
         .period-container { -ms-overflow-style: none; scrollbar-width: none; }
 
         .btn-period {
-            padding: 0.4rem 0.75rem;
+            padding: 0.4rem 0.85rem;
             font-size: 11px;
             font-weight: 700;
             border: none;
@@ -249,7 +264,6 @@
             border-color: #334155;
         }
 
-        /* 統計トグルボタンスタイル */
         .btn-stat-toggle {
             padding: 0.35rem 0.75rem;
             font-size: 11px;
@@ -264,12 +278,12 @@
         }
 
         .btn-stat-toggle.active {
-            background-color: #e0e7ff;
-            color: #4338ca;
-            border: 1px solid #6366f1;
+            background-color: #fdf4ff;
+            color: #a21caf;
+            border: 1px solid #d946ef;
         }
 
-        /* グラフ描画領域 (縦幅520px) */
+        /* グラフ描画領域 (縦画面時は520pxでゆったり表示) */
         .chart-container {
             width: 100%;
             height: 520px;
@@ -435,27 +449,25 @@
             </form>
         </section>
 
-        <!-- 推移グラフ -->
-        <section class="card">
+        <!-- 推移グラフ (4分類粒度 ＋ 横画面対応) -->
+        <section class="card chart-card">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
                 <div style="display: flex; flex-direction: column;">
                     <h2 class="card-title" style="margin-bottom: 0;"><span>📈</span> 体組成推移</h2>
                     <span id="chart-range-text" style="font-size: 10px; color: var(--primary); font-weight: 700; margin-top: 0.2rem;">範囲: --</span>
                 </div>
-                <span style="font-size: 10px; color: var(--text-muted); font-weight: 600;">👈👉 左右スワイプでスライド</span>
+                <span id="orientation-hint" style="font-size: 10px; color: var(--text-muted); font-weight: 600;">📱 横に倒すとワイド表示</span>
             </div>
             
-            <!-- 期間切り替えタブ -->
+            <!-- 【変更】時間粒度（集計単位）の4分類タブ -->
             <div class="period-container">
-                <button type="button" onclick="changePeriod(7)" id="btn-7" class="btn-period">7日</button>
-                <button type="button" onclick="changePeriod(30)" id="btn-30" class="btn-period active">30日</button>
-                <button type="button" onclick="changePeriod(60)" id="btn-60" class="btn-period">60日</button>
-                <button type="button" onclick="changePeriod(90)" id="btn-90" class="btn-period">90日</button>
-                <button type="button" onclick="changePeriod(180)" id="btn-180" class="btn-period">180日</button>
-                <button type="button" onclick="changePeriod(365)" id="btn-365" class="btn-period">365日</button>
+                <button type="button" onclick="changeGranularity('day')" id="btn-g-day" class="btn-period active">1日</button>
+                <button type="button" onclick="changeGranularity('week')" id="btn-g-week" class="btn-period">1週間</button>
+                <button type="button" onclick="changeGranularity('halfMonth')" id="btn-g-halfMonth" class="btn-period">半月</button>
+                <button type="button" onclick="changeGranularity('month')" id="btn-g-month" class="btn-period">1ヶ月</button>
             </div>
 
-            <!-- 表示項目切り替えトグルボタン ＆ 統計指標トグルボタン -->
+            <!-- 表示項目 ＆ 統計トグル -->
             <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem;">
                 <div style="display: flex; gap: 0.25rem;">
                     <button type="button" onclick="changeViewMode('both')" id="btn-vm-both" class="btn-view-toggle active">両方</button>
@@ -463,14 +475,19 @@
                     <button type="button" onclick="changeViewMode('waist')" id="btn-vm-waist" class="btn-view-toggle">ウエストのみ</button>
                 </div>
                 
-                <!-- 【新規実装】移動平均線 ＆ 標準偏差バンドのトグルボタン -->
-                <div style="display: flex; gap: 0.25rem;">
-                    <button type="button" onclick="toggleMovingAverage()" id="btn-toggle-ma" class="btn-stat-toggle">📈 移動平均</button>
+                <!-- 移動平均 ＆ 偏差バンドのトグル群 -->
+                <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;" id="ma-container">
+                    <!-- 「1日」の場合：3日MAと7日MAの2択ボタンを動的に表示 -->
+                    <button type="button" onclick="toggleMovingAverage('ma3')" id="btn-toggle-ma3" class="btn-stat-toggle">📈 3日平均</button>
+                    <button type="button" onclick="toggleMovingAverage('ma7')" id="btn-toggle-ma7" class="btn-stat-toggle">📈 7日平均</button>
+                    <!-- 「1週間・半月・1ヶ月」の場合用 -->
+                    <button type="button" onclick="toggleMovingAverage('auto')" id="btn-toggle-ma-auto" class="btn-stat-toggle hidden">📈 移動平均</button>
+                    
                     <button type="button" onclick="toggleStdDevBand()" id="btn-toggle-sd" class="btn-stat-toggle">📊 偏差バンド</button>
                 </div>
             </div>
 
-            <!-- Y軸スケール（表示範囲）の手動調整UI -->
+            <!-- Y軸スケール設定 -->
             <details class="card-desc" style="background-color: var(--input-bg); padding: 0.65rem 0.85rem; border-radius: 0.85rem; border: 1px solid #e2e8f0; cursor: pointer; margin-bottom: 1rem;">
                 <summary style="font-weight: 700; color: #475569; font-size: 11px;">⚙️ 軸スケール（表示範囲）の手動可変設定</summary>
                 <div style="margin-top: 0.65rem; display: flex; flex-direction: column; gap: 0.5rem;" onclick="event.stopPropagation();">
@@ -637,7 +654,9 @@
         let chartInstance = null;
         let weekdayChartInstance = null;
         
-        let selectedPeriod = 30;
+        // 【新規】時間粒度（集計単位）の4分類: 'day'(1日), 'week'(1週間), 'halfMonth'(半月), 'month'(1ヶ月)
+        let selectedGranularity = 'day';
+        
         let selectedWeekdayFilter = 'all';
         let selectedTablePeriod = 30;
         let selectedTableWeekday = 'all';
@@ -645,15 +664,17 @@
         let selectedViewMode = 'both';
         let chartOffsetDays = 0;
 
-        // 【新規】移動平均線および標準偏差バンドの表示フラグ
-        let showMovingAverage = false;
+        // 移動平均の指定: null(非表示), 'ma3'(3日), 'ma7'(7日), 'auto'(各分類固定)
+        let activeMovingAverage = null;
         let showStdDevBand = false;
 
         const weekNames = ['日', '月', '火', '水', '木', '金', '土'];
-        const defaultBarColor = 'rgba(79, 70, 229, 0.65)';
+        
+        // 【配色改善】全要素が明確に分離して見えるプレミアム・ハイコントラスト配色
+        const defaultBarColor = 'rgba(99, 102, 241, 0.65)';  // 体重: インディゴ
         const defaultBarBorder = 'rgb(79, 70, 229)';
-        const highlightBarColor = 'rgba(245, 158, 11, 0.95)';
-        const dimmedBarColor = 'rgba(79, 70, 229, 0.2)';
+        const highlightBarColor = 'rgba(245, 158, 11, 0.95)'; // ハイライト: アンバーオレンジ
+        const dimmedBarColor = 'rgba(99, 102, 241, 0.2)';
 
         window.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('input-date').valueAsDate = new Date();
@@ -662,8 +683,25 @@
             loadGithubSettings();
             renderTableAndChart();
             setupSeamlessSwipeGesture();
+            setupOrientationListener();
             await initPyodide();
         });
+
+        // スマホ画面の向き（縦/横）の変更監視と自動ワイド化
+        function setupOrientationListener() {
+            const handleResize = () => {
+                const isLandscape = window.innerWidth > window.innerHeight;
+                const hint = document.getElementById('orientation-hint');
+                if (hint) {
+                    hint.innerText = isLandscape ? "ワイド表示中 (パノラマ)" : "📱 横に倒すとワイド表示";
+                }
+                // 表示件数を横画面に合わせて自動再計算して再描画
+                renderTableAndChart();
+            };
+
+            window.addEventListener('resize', handleResize);
+            window.addEventListener('orientationchange', handleResize);
+        }
 
         // タッチスライドロジック
         function setupSeamlessSwipeGesture() {
@@ -675,10 +713,10 @@
 
             const getPxPerUnit = () => {
                 const width = wrapper.clientWidth || 320;
-                if (selectedPeriod === 7) return width / 7;
-                if (selectedPeriod === 30) return width / 18;
-                if (selectedPeriod === 60 || selectedPeriod === 90) return width / 10;
-                return width / 8;
+                if (selectedGranularity === 'day') return width / 14;
+                if (selectedGranularity === 'week') return width / 8;
+                if (selectedGranularity === 'halfMonth') return width / 8;
+                return width / 6; // month
             };
 
             const handleTouchStart = (e) => {
@@ -724,45 +762,79 @@
             window.addEventListener('mouseup', handleTouchEnd);
         }
 
-        // 表示モード切り替え
+        // 【新機能】時間粒度（4分類）の切り替え
+        function changeGranularity(granularity) {
+            chartOffsetDays = 0; // シフト位置をリセット
+            selectedGranularity = granularity;
+            
+            ['day', 'week', 'halfMonth', 'month'].forEach(g => {
+                const btn = document.getElementById(`btn-g-${g}`);
+                if (g === granularity) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+
+            // 「1日」の場合と、それ以外での移動平均ボタンの表示切り替え
+            const btnMa3 = document.getElementById('btn-toggle-ma3');
+            const btnMa7 = document.getElementById('btn-toggle-ma7');
+            const btnMaAuto = document.getElementById('btn-toggle-ma-auto');
+
+            if (granularity === 'day') {
+                btnMa3.classList.remove('hidden');
+                btnMa7.classList.remove('hidden');
+                btnMaAuto.classList.add('hidden');
+                if (activeMovingAverage === 'auto') activeMovingAverage = 'ma7'; // 1日時は7日MAをデフォルトに
+            } else {
+                btnMa3.classList.add('hidden');
+                btnMa7.classList.add('hidden');
+                btnMaAuto.classList.remove('hidden');
+                if (activeMovingAverage === 'ma3' || activeMovingAverage === 'ma7') activeMovingAverage = 'auto';
+                
+                // ボタンテキストを分かりやすく設定
+                if (granularity === 'week') btnMaAuto.innerText = "📈 3週平均";
+                else if (granularity === 'halfMonth') btnMaAuto.innerText = "📈 1月半平均";
+                else if (granularity === 'month') btnMaAuto.innerText = "📈 3ヶ月平均";
+            }
+
+            updateMAButtonStyles();
+            renderTableAndChart();
+        }
+
+        function toggleMovingAverage(type) {
+            if (activeMovingAverage === type) {
+                activeMovingAverage = null; // 解除
+            } else {
+                activeMovingAverage = type;
+            }
+            updateMAButtonStyles();
+            renderTableAndChart();
+        }
+
+        function updateMAButtonStyles() {
+            const btnMa3 = document.getElementById('btn-toggle-ma3');
+            const btnMa7 = document.getElementById('btn-toggle-ma7');
+            const btnMaAuto = document.getElementById('btn-toggle-ma-auto');
+
+            btnMa3.classList.toggle('active', activeMovingAverage === 'ma3');
+            btnMa7.classList.toggle('active', activeMovingAverage === 'ma7');
+            btnMaAuto.classList.toggle('active', activeMovingAverage === 'auto');
+        }
+
+        function toggleStdDevBand() {
+            showStdDevBand = !showStdDevBand;
+            document.getElementById('btn-toggle-sd').classList.toggle('active', showStdDevBand);
+            renderTableAndChart();
+        }
+
         function changeViewMode(mode) {
             selectedViewMode = mode;
             ['both', 'weight', 'waist'].forEach(m => {
                 const btn = document.getElementById(`btn-vm-${m}`);
-                if (m === mode) {
-                    btn.classList.add('active');
-                } else {
-                    btn.classList.remove('active');
-                }
+                if (m === mode) btn.classList.add('active');
+                else btn.classList.remove('active');
             });
             renderTableAndChart();
         }
 
-        // 移動平均線トグル
-        function toggleMovingAverage() {
-            showMovingAverage = !showMovingAverage;
-            const btn = document.getElementById('btn-toggle-ma');
-            if (showMovingAverage) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-            renderTableAndChart();
-        }
-
-        // 標準偏差バンドトグル
-        function toggleStdDevBand() {
-            showStdDevBand = !showStdDevBand;
-            const btn = document.getElementById('btn-toggle-sd');
-            if (showStdDevBand) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-            renderTableAndChart();
-        }
-
-        // Y軸スケールの手動設定
         function updateScaleSettings() {
             const wMin = parseFloat(document.getElementById('scale-w-min').value);
             const wMax = parseFloat(document.getElementById('scale-w-max').value);
@@ -802,7 +874,6 @@
             document.getElementById('scale-a-max').placeholder = calcAMax;
         }
 
-        // URLデータインポート
         function checkURLAndImport() {
             const urlParams = new URLSearchParams(window.location.search);
             const importData = urlParams.get('data');
@@ -831,7 +902,6 @@
             }
         }
 
-        // GitHub設定
         function saveGithubSettings() {
             const repo = document.getElementById('gh-repo').value.trim();
             const token = document.getElementById('gh-token').value.trim();
@@ -844,7 +914,6 @@
             if (settings.token) document.getElementById('gh-token').value = settings.token;
         }
 
-        // GitHubバックアップ
         async function backupToGitHub() {
             const settings = JSON.parse(localStorage.getItem('wt_github_settings') || '{}');
             const repo = settings.repo;
@@ -898,7 +967,6 @@
             }
         }
 
-        // GitHub復元
         async function restoreFromGitHub() {
             const settings = JSON.parse(localStorage.getItem('wt_github_settings') || '{}');
             const repo = settings.repo;
@@ -952,7 +1020,6 @@
             }
         }
 
-        // ローカル保存
         function downloadJSONFile() {
             const records = localStorage.getItem('wt_records') || '[]';
             const profile = localStorage.getItem('wt_profile') || '{}';
@@ -1015,7 +1082,6 @@
             reader.readAsText(file);
         }
 
-        // QRコード生成
         function generateQRCode() {
             const records = localStorage.getItem('wt_records') || '[]';
             const profile = localStorage.getItem('wt_profile') || '{}';
@@ -1053,23 +1119,6 @@
 
         function hideQR() {
             document.getElementById('qr-container').classList.add('hidden');
-        }
-
-        // 期間切り替え
-        function changePeriod(days) {
-            chartOffsetDays = 0;
-            selectedPeriod = days;
-            const periods = [7, 30, 60, 90, 180, 365];
-            periods.forEach(p => {
-                const btn = document.getElementById(`btn-${p}`);
-                if (p === days) {
-                    if (btn) btn.classList.add('active');
-                } else {
-                    if (btn) btn.classList.remove('active');
-                }
-            });
-
-            renderTableAndChart();
         }
 
         function changeWeekdayFilter(day) {
@@ -1235,7 +1284,7 @@
                             {
                                 label: '平均体重 (kg)',
                                 data: chartWeights,
-                                borderColor: 'rgb(79, 70, 229)',
+                                borderColor: defaultBarBorder,
                                 backgroundColor: defaultBarColor,
                                 yAxisID: 'y-weight',
                                 maxBarThickness: 14,
@@ -1281,7 +1330,7 @@
                 const dayIndex = parseInt(selectedWeekdayFilter);
                 const now = new Date();
                 const cutoffDate = new Date();
-                cutoffDate.setDate(now.getDate() - selectedPeriod);
+                cutoffDate.setDate(now.getDate() - 30);
 
                 const filteredRecords = records.filter(r => {
                     const d = new Date(r.date);
@@ -1307,7 +1356,7 @@
                             {
                                 label: `体重 (kg) - ${weekNames[dayIndex]}曜`,
                                 data: chartWeights,
-                                borderColor: 'rgb(79, 70, 229)',
+                                borderColor: defaultBarBorder,
                                 backgroundColor: highlightBarColor,
                                 yAxisID: 'y-weight',
                                 maxBarThickness: 14,
@@ -1442,7 +1491,7 @@
             }
         }
 
-        // 時系列推移データ作成コア関数 (180日カレンダー半月化対応)
+        // 【新設計】4分類の時間粒度 ＆ 縦横画面連動のデータ生成ロジック
         function buildChartDataPayload() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             const recordMap = {};
@@ -1458,14 +1507,18 @@
             let rangeTitleStr = "";
 
             const targetDayIdx = selectedWeekdayFilter === 'all' ? null : parseInt(selectedWeekdayFilter);
+            const isLandscape = window.innerWidth > window.innerHeight;
 
-            if (selectedPeriod === 7 || selectedPeriod === 30) {
+            // 1. 「1日」分類 (縦画面: 14日分, 横画面: 35日分)
+            if (selectedGranularity === 'day') {
+                const displayCount = isLandscape ? 35 : 14;
+
                 const shiftEndDate = new Date(baseEndDate);
                 shiftEndDate.setDate(baseEndDate.getDate() - chartOffsetDays);
                 shiftEndDate.setHours(23, 59, 59, 999);
 
                 const shiftStartDate = new Date(shiftEndDate);
-                shiftStartDate.setDate(shiftEndDate.getDate() - selectedPeriod + 1);
+                shiftStartDate.setDate(shiftEndDate.getDate() - displayCount + 1);
                 shiftStartDate.setHours(0, 0, 0, 0);
 
                 const fmtFull = (d) => `${d.getFullYear()}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
@@ -1500,9 +1553,10 @@
                     cur.setDate(cur.getDate() + 1);
                 }
 
-            } else if (selectedPeriod === 60 || selectedPeriod === 90) {
-                const weeksCount = selectedPeriod === 60 ? 8 : 12;
-                
+            // 2. 「1週間」分類 (日曜日起点。縦画面: 8週分, 横画面: 18週分)
+            } else if (selectedGranularity === 'week') {
+                const weeksCount = isLandscape ? 18 : 8;
+
                 const lastSun = new Date(baseEndDate);
                 lastSun.setDate(baseEndDate.getDate() - baseEndDate.getDay());
                 lastSun.setHours(0, 0, 0, 0);
@@ -1542,22 +1596,19 @@
                     barColors.push(defaultBarColor);
                 }
 
-            } else if (selectedPeriod === 180) {
-                // 【新規実装】180日カレンダー半月化（1〜15日 / 16日〜月末、過去12半月分）
-                const halfMonthCount = 12; // 6ヶ月 × 2半月 = 12ブロック
-                
-                // 現在の日付から半月インデックスを特定
+            // 3. 「半月」分類 (1〜15日/16日〜末。縦画面: 8半月(4ヶ月)分, 横画面: 16半月(8ヶ月)分)
+            } else if (selectedGranularity === 'halfMonth') {
+                const halfMonthCount = isLandscape ? 16 : 8;
+
                 const curY = baseEndDate.getFullYear();
                 const curM = baseEndDate.getMonth();
                 const curIsSecondHalf = baseEndDate.getDate() >= 16;
                 let currentGlobalHalf = (curY * 24) + (curM * 2) + (curIsSecondHalf ? 1 : 0);
-
-                // オフセット適用
                 currentGlobalHalf -= chartOffsetDays;
 
                 const startGlobalHalf = currentGlobalHalf - halfMonthCount + 1;
-
                 const blocks = [];
+
                 for (let h = startGlobalHalf; h <= currentGlobalHalf; h++) {
                     const y = Math.floor(h / 24);
                     const m = Math.floor((h % 24) / 2);
@@ -1565,7 +1616,6 @@
 
                     const bStart = new Date(y, m, isSecond ? 16 : 1, 0, 0, 0, 0);
                     const bEnd = isSecond ? new Date(y, m + 1, 0, 23, 59, 59, 999) : new Date(y, m, 15, 23, 59, 59, 999);
-                    
                     const label = isSecond ? `${(m + 1).toString().padStart(2, '0')}/16-末` : `${(m + 1).toString().padStart(2, '0')}/1-15`;
                     blocks.push({ bStart, bEnd, label });
                 }
@@ -1591,9 +1641,9 @@
                     barColors.push(defaultBarColor);
                 });
 
+            // 4. 「1ヶ月」分類 (毎月1日〜末。縦画面: 6ヶ月分, 横画面: 14ヶ月分)
             } else {
-                // 365日：月平均（毎月1日起点、12ヶ月）
-                const monthsCount = 12;
+                const monthsCount = isLandscape ? 14 : 6;
 
                 const lastMonthDate = new Date(baseEndDate.getFullYear(), baseEndDate.getMonth() - chartOffsetDays, 1);
                 const firstMonthDate = new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() - monthsCount + 1, 1);
@@ -1623,21 +1673,20 @@
             return { chartLabels, chartWeights, chartWaists, barColors, rangeTitleStr };
         }
 
-        // 表示用データセット生成関数（基準線・移動平均線・標準偏差バンド対応）
+        // 表示用データセット生成関数（新配色・移動平均・標準偏差バンド対応）
         function buildDatasets(chartLabels, chartWeights, chartWaists, barColors) {
             const activeRangeWeights = chartWeights.filter(v => v !== null && v !== undefined && !isNaN(v));
             const activeRangeWaists = chartWaists.filter(v => v !== null && v !== undefined && !isNaN(v));
 
             const datasets = [];
 
-            // 基準とするデータ（ウエストのみモードならウエスト、それ以外は体重）
             const isTargetWaist = selectedViewMode === 'waist';
             const statData = isTargetWaist ? activeRangeWaists : activeRangeWeights;
             const rawSeries = isTargetWaist ? chartWaists : chartWeights;
             const statYAxisID = isTargetWaist ? 'y-waist' : 'y-weight';
             const statUnit = isTargetWaist ? 'cm' : 'kg';
 
-            // 1. 【新規実装】標準偏差バンド（±1σ / 信頼区間領域）
+            // 1. 【配色刷新】標準偏差バンド (±1σ): 青や緑と絶対に被らない「ウォームアンバー帯」
             if (showStdDevBand && statData.length >= 2) {
                 const mean = statData.reduce((a, b) => a + b, 0) / statData.length;
                 const variance = statData.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / statData.length;
@@ -1651,12 +1700,12 @@
                     type: 'line',
                     label: `+1σ 上限 (${upperVal}${statUnit})`,
                     data: chartLabels.map(() => upperVal),
-                    borderColor: 'rgba(99, 102, 241, 0.4)',
-                    borderWidth: 1,
-                    borderDash: [2, 2],
+                    borderColor: 'rgba(245, 158, 11, 0.45)', // アンバー破線
+                    borderWidth: 1.2,
+                    borderDash: [3, 3],
                     pointRadius: 0,
-                    fill: '+1', // 下限ラインに向かって帯状に塗りつぶし
-                    backgroundColor: 'rgba(99, 102, 241, 0.08)', // 上品な半透明パープル
+                    fill: '+1',
+                    backgroundColor: 'rgba(251, 191, 36, 0.12)', // 暖かみのあるウォームアンバーの帯
                     yAxisID: statYAxisID,
                     order: 5
                 });
@@ -1666,9 +1715,9 @@
                     type: 'line',
                     label: `-1σ 下限 (${lowerVal}${statUnit})`,
                     data: chartLabels.map(() => lowerVal),
-                    borderColor: 'rgba(99, 102, 241, 0.4)',
-                    borderWidth: 1,
-                    borderDash: [2, 2],
+                    borderColor: 'rgba(245, 158, 11, 0.45)',
+                    borderWidth: 1.2,
+                    borderDash: [3, 3],
                     pointRadius: 0,
                     fill: false,
                     yAxisID: statYAxisID,
@@ -1676,7 +1725,7 @@
                 });
             }
 
-            // 2. 体重バー
+            // 2. 体重バー (インディゴ)
             if (selectedViewMode === 'both' || selectedViewMode === 'weight') {
                 datasets.push({
                     type: 'bar',
@@ -1686,12 +1735,12 @@
                     backgroundColor: barColors,
                     yAxisID: 'y-weight',
                     barThickness: 'flex',
-                    maxBarThickness: 14,
+                    maxBarThickness: 16,
                     order: 4
                 });
             }
 
-            // 3. ウエストライン
+            // 3. ウエストライン (エメラルドグリーン)
             if (selectedViewMode === 'both' || selectedViewMode === 'waist') {
                 datasets.push({
                     type: 'line',
@@ -1699,6 +1748,9 @@
                     data: chartWaists,
                     borderColor: 'rgb(16, 185, 129)',
                     backgroundColor: 'transparent',
+                    borderWidth: 2.2,
+                    pointRadius: 2.5,
+                    pointBackgroundColor: 'rgb(16, 185, 129)',
                     yAxisID: 'y-waist',
                     tension: 0,
                     fill: false,
@@ -1707,17 +1759,30 @@
                 });
             }
 
-            // 4. 【新規実装】移動平均線（Moving Average）
-            if (showMovingAverage && rawSeries.length > 0) {
-                // 表示期間に応じた妥当な移動平均ウィンドウ(windowSize)の決定
+            // 4. 【配色刷新＆新仕様】移動平均線: 鮮烈なビビッド・マゼンタ（赤紫）
+            if (activeMovingAverage !== null && rawSeries.length > 0) {
                 let windowSize = 7;
-                if (selectedPeriod === 7) windowSize = 3;
-                else if (selectedPeriod === 30) windowSize = 7;
-                else if (selectedPeriod === 60 || selectedPeriod === 90) windowSize = 3; // 3週MA
-                else if (selectedPeriod === 180) windowSize = 3; // 3半月MA
-                else if (selectedPeriod === 365) windowSize = 3; // 3ヶ月MA
+                let maLabelText = "移動平均";
 
-                // 有効値のみを使って移動平均を算出
+                if (selectedGranularity === 'day') {
+                    if (activeMovingAverage === 'ma3') {
+                        windowSize = 3;
+                        maLabelText = "3日移動平均";
+                    } else {
+                        windowSize = 7;
+                        maLabelText = "7日移動平均";
+                    }
+                } else if (selectedGranularity === 'week') {
+                    windowSize = 3; // 3週(21日)平均
+                    maLabelText = "3週移動平均";
+                } else if (selectedGranularity === 'halfMonth') {
+                    windowSize = 3; // 3半月(1.5ヶ月)平均
+                    maLabelText = "1月半移動平均";
+                } else {
+                    windowSize = 3; // 3ヶ月平均
+                    maLabelText = "3ヶ月移動平均";
+                }
+
                 const maData = [];
                 const validVals = [];
                 
@@ -1737,10 +1802,10 @@
 
                 datasets.push({
                     type: 'line',
-                    label: `移動平均 (${windowSize}${selectedPeriod <= 30 ? '日' : selectedPeriod <= 90 ? '週' : selectedPeriod === 180 ? '半月' : 'ヶ月'})`,
+                    label: maLabelText,
                     data: maData,
-                    borderColor: '#06b6d4', // シアン（水色）
-                    borderWidth: 2.2,
+                    borderColor: 'rgb(192, 38, 211)', // 鮮やかなマゼンタ（青や緑から最も離れた高視認色）
+                    borderWidth: 2.5,
                     pointRadius: 0,
                     fill: false,
                     tension: 0.25,
@@ -1750,7 +1815,7 @@
                 });
             }
 
-            // 5. 基準線（最大・最小・平均）
+            // 5. 【配色刷新】基準線（最大・最小・平均）
             if (statData.length > 0) {
                 const maxVal = Math.max(...statData);
                 const minVal = Math.min(...statData);
@@ -1760,11 +1825,12 @@
                 const minLineData = chartLabels.map(() => minVal);
                 const avgLineData = chartLabels.map(() => avgVal);
 
+                // 最大値 (クリムゾンレッド破線)
                 datasets.push({
                     type: 'line',
                     label: `最大 (${maxVal}${statUnit})`,
                     data: maxLineData,
-                    borderColor: 'rgba(244, 63, 94, 0.85)',
+                    borderColor: 'rgba(225, 29, 72, 0.85)',
                     borderWidth: 1.5,
                     borderDash: [4, 4],
                     pointRadius: 0,
@@ -1773,11 +1839,12 @@
                     order: 1
                 });
 
+                // 最小値 (同じくクリムゾンレッド破線)
                 datasets.push({
                     type: 'line',
                     label: `最小 (${minVal}${statUnit})`,
                     data: minLineData,
-                    borderColor: 'rgba(244, 63, 94, 0.85)',
+                    borderColor: 'rgba(225, 29, 72, 0.85)',
                     borderWidth: 1.5,
                     borderDash: [4, 4],
                     pointRadius: 0,
@@ -1786,11 +1853,12 @@
                     order: 1
                 });
 
+                // 平均値 (スレートチャコール破線: 最大・最小・偏差バンドとも完全に差別化)
                 datasets.push({
                     type: 'line',
                     label: `平均 (${avgVal}${statUnit})`,
                     data: avgLineData,
-                    borderColor: 'rgba(245, 158, 11, 0.95)',
+                    borderColor: 'rgba(71, 85, 105, 0.85)',
                     borderWidth: 1.5,
                     borderDash: [6, 3],
                     pointRadius: 0,
@@ -1803,7 +1871,7 @@
             return datasets;
         }
 
-        // 超軽量インプレース更新処理
+        // 超軽量インプレース更新処理 (ドラッグ中60fps実行)
         function updateChartInPlace() {
             if (!chartInstance) {
                 renderTableAndChart();
@@ -1876,6 +1944,7 @@
             const weightDiff = weightMax - weightMin;
             const waistDiff = waistMax - waistMin;
 
+            // 体重のみ時1kg刻み、ウエストのみ時1cm刻み
             let wStepSize = weightDiff < 10 ? 0.5 : 1.0;
             let wAutoSkip = weightDiff < 10 ? false : true;
 
