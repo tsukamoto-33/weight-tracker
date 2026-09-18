@@ -87,7 +87,7 @@
             color: white;
         }
 
-        /* メインコンテナ（縦持ちはmax-w-md、横向き時はレスポンシブに自動ワイド化） */
+        /* メインコンテナ */
         main {
             max-width: 440px;
             margin: 0 auto;
@@ -95,17 +95,48 @@
             transition: max-width 0.3s;
         }
 
-        /* 横画面（ランドスケープ）時のワイドパノラマレイアウト */
-        @media (orientation: landscape) and (max-height: 600px) {
+        /* 【改修】横画面（ランドスケープ）時の1画面すっきり収容レイアウト */
+        @media (orientation: landscape) and (max-height: 550px) {
+            body {
+                padding-bottom: 1rem;
+            }
+            header {
+                padding: 0.4rem 0.8rem !important;
+            }
+            header h1 {
+                font-size: 0.95rem !important;
+            }
+            .status-badge {
+                font-size: 10px !important;
+                padding: 0.15rem 0.5rem !important;
+            }
             main {
-                max-width: 96% !important;
-                padding: 1rem 0.5rem;
+                max-width: 98% !important;
+                padding: 0.5rem !important;
             }
             .chart-card {
-                padding: 1rem !important;
+                padding: 0.75rem 1rem !important;
+                border-radius: 1.25rem !important;
+                margin-bottom: 0.75rem !important;
+            }
+            .card-title {
+                font-size: 0.85rem !important;
+                margin-bottom: 0.25rem !important;
+            }
+            .period-container {
+                margin-bottom: 0.3rem !important;
+                gap: 0.2rem !important;
+            }
+            .btn-period, .btn-view-toggle, .btn-stat-toggle {
+                padding: 0.2rem 0.5rem !important;
+                font-size: 10px !important;
+            }
+            .controls-row {
+                margin-bottom: 0.35rem !important;
+                gap: 0.25rem !important;
             }
             .chart-container {
-                height: 380px !important;
+                height: 270px !important; /* 横画面の高さにぴったり合わせる */
             }
         }
 
@@ -265,7 +296,7 @@
         }
 
         .btn-stat-toggle {
-            padding: 0.35rem 0.75rem;
+            padding: 0.35rem 0.65rem;
             font-size: 11px;
             font-weight: 700;
             border: 1px dashed #cbd5e1;
@@ -277,13 +308,32 @@
             white-space: nowrap;
         }
 
+        /* トグルアクティブ状態のカラー */
         .btn-stat-toggle.active {
+            background-color: #e0e7ff;
+            color: #4338ca;
+            border: 1px solid #6366f1;
+        }
+
+        .btn-stat-toggle.active-magenta {
             background-color: #fdf4ff;
             color: #a21caf;
             border: 1px solid #d946ef;
         }
 
-        /* グラフ描画領域 (縦画面時は520pxでゆったり表示) */
+        .btn-stat-toggle.active-amber {
+            background-color: #fef3c7;
+            color: #b45309;
+            border: 1px solid #f59e0b;
+        }
+
+        .btn-stat-toggle.active-red {
+            background-color: #ffe4e6;
+            color: #be123c;
+            border: 1px solid #f43f5e;
+        }
+
+        /* グラフ描画領域 (縦画面時は520px) */
         .chart-container {
             width: 100%;
             height: 520px;
@@ -449,17 +499,17 @@
             </form>
         </section>
 
-        <!-- 推移グラフ (4分類粒度 ＋ 横画面対応) -->
+        <!-- 推移グラフ -->
         <section class="card chart-card">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.4rem;">
                 <div style="display: flex; flex-direction: column;">
                     <h2 class="card-title" style="margin-bottom: 0;"><span>📈</span> 体組成推移</h2>
-                    <span id="chart-range-text" style="font-size: 10px; color: var(--primary); font-weight: 700; margin-top: 0.2rem;">範囲: --</span>
+                    <span id="chart-range-text" style="font-size: 10px; color: var(--primary); font-weight: 700; margin-top: 0.15rem;">範囲: --</span>
                 </div>
                 <span id="orientation-hint" style="font-size: 10px; color: var(--text-muted); font-weight: 600;">📱 横に倒すとワイド表示</span>
             </div>
             
-            <!-- 【変更】時間粒度（集計単位）の4分類タブ -->
+            <!-- 時間粒度タブ -->
             <div class="period-container">
                 <button type="button" onclick="changeGranularity('day')" id="btn-g-day" class="btn-period active">1日</button>
                 <button type="button" onclick="changeGranularity('week')" id="btn-g-week" class="btn-period">1週間</button>
@@ -467,57 +517,60 @@
                 <button type="button" onclick="changeGranularity('month')" id="btn-g-month" class="btn-period">1ヶ月</button>
             </div>
 
-            <!-- 表示項目 ＆ 統計トグル -->
-            <div style="display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.75rem;">
+            <!-- 【改修】表示項目 ＆ 全統計トグルボタン群 -->
+            <div class="controls-row" style="display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.6rem;">
+                <!-- 項目切り替え -->
                 <div style="display: flex; gap: 0.25rem;">
                     <button type="button" onclick="changeViewMode('both')" id="btn-vm-both" class="btn-view-toggle active">両方</button>
                     <button type="button" onclick="changeViewMode('weight')" id="btn-vm-weight" class="btn-view-toggle">体重のみ</button>
                     <button type="button" onclick="changeViewMode('waist')" id="btn-vm-waist" class="btn-view-toggle">ウエストのみ</button>
                 </div>
                 
-                <!-- 移動平均 ＆ 偏差バンドのトグル群 -->
-                <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;" id="ma-container">
-                    <!-- 「1日」の場合：3日MAと7日MAの2択ボタンを動的に表示 -->
+                <!-- 統計ライン切り替えトグル群 -->
+                <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
+                    <button type="button" onclick="toggleMinMax()" id="btn-toggle-minmax" class="btn-stat-toggle active-red">📉 最大最小</button>
+                    <button type="button" onclick="toggleAverage()" id="btn-toggle-avg" class="btn-stat-toggle active">➖ 平均線</button>
+                    
                     <button type="button" onclick="toggleMovingAverage('ma3')" id="btn-toggle-ma3" class="btn-stat-toggle">📈 3日平均</button>
                     <button type="button" onclick="toggleMovingAverage('ma7')" id="btn-toggle-ma7" class="btn-stat-toggle">📈 7日平均</button>
-                    <!-- 「1週間・半月・1ヶ月」の場合用 -->
                     <button type="button" onclick="toggleMovingAverage('auto')" id="btn-toggle-ma-auto" class="btn-stat-toggle hidden">📈 移動平均</button>
                     
                     <button type="button" onclick="toggleStdDevBand()" id="btn-toggle-sd" class="btn-stat-toggle">📊 偏差バンド</button>
                 </div>
             </div>
 
-            <!-- Y軸スケール設定 -->
-            <details class="card-desc" style="background-color: var(--input-bg); padding: 0.65rem 0.85rem; border-radius: 0.85rem; border: 1px solid #e2e8f0; cursor: pointer; margin-bottom: 1rem;">
-                <summary style="font-weight: 700; color: #475569; font-size: 11px;">⚙️ 軸スケール（表示範囲）の手動可変設定</summary>
+            <!-- グラフ描画領域 -->
+            <div class="chart-container" id="main-chart-wrapper">
+                <canvas id="weightChart"></canvas>
+            </div>
+
+            <!-- 【改修】使わない軸スケール設定をグラフの真下（X軸の下）へ移動 -->
+            <details class="card-desc" style="background-color: var(--input-bg); padding: 0.5rem 0.75rem; border-radius: 0.75rem; border: 1px solid #e2e8f0; cursor: pointer; margin-top: 0.85rem; margin-bottom: 0;">
+                <summary style="font-weight: 700; color: #64748b; font-size: 11px;">⚙️ 軸スケール（表示範囲）の手動調整</summary>
                 <div style="margin-top: 0.65rem; display: flex; flex-direction: column; gap: 0.5rem;" onclick="event.stopPropagation();">
                     <div class="grid-2" style="margin-bottom: 0;">
                         <div>
                             <label class="label">体重 最小 (kg)</label>
-                            <input type="number" id="scale-w-min" step="0.5" class="input" style="padding: 0.4rem 0.6rem; font-size: 12px;" onchange="updateScaleSettings()">
+                            <input type="number" id="scale-w-min" step="0.5" class="input" style="padding: 0.35rem 0.5rem; font-size: 12px;" onchange="updateScaleSettings()">
                         </div>
                         <div>
                             <label class="label">体重 最大 (kg)</label>
-                            <input type="number" id="scale-w-max" step="0.5" class="input" style="padding: 0.4rem 0.6rem; font-size: 12px;" onchange="updateScaleSettings()">
+                            <input type="number" id="scale-w-max" step="0.5" class="input" style="padding: 0.35rem 0.5rem; font-size: 12px;" onchange="updateScaleSettings()">
                         </div>
                     </div>
                     <div class="grid-2" style="margin-bottom: 0;">
                         <div>
                             <label class="label">ウエスト 最小 (cm)</label>
-                            <input type="number" id="scale-a-min" step="1.0" class="input" style="padding: 0.4rem 0.6rem; font-size: 12px;" onchange="updateScaleSettings()">
+                            <input type="number" id="scale-a-min" step="1.0" class="input" style="padding: 0.35rem 0.5rem; font-size: 12px;" onchange="updateScaleSettings()">
                         </div>
                         <div>
                             <label class="label">ウエスト 最大 (cm)</label>
-                            <input type="number" id="scale-a-max" step="1.0" class="input" style="padding: 0.4rem 0.6rem; font-size: 12px;" onchange="updateScaleSettings()">
+                            <input type="number" id="scale-a-max" step="1.0" class="input" style="padding: 0.35rem 0.5rem; font-size: 12px;" onchange="updateScaleSettings()">
                         </div>
                     </div>
                     <button type="button" onclick="resetScaleSettings()" class="link-text" style="text-align: right; color: var(--primary); font-weight: 700;">↺ 自動設定に戻す</button>
                 </div>
             </details>
-
-            <div class="chart-container" id="main-chart-wrapper">
-                <canvas id="weightChart"></canvas>
-            </div>
         </section>
 
         <!-- 曜日別分析・比較セクション -->
@@ -654,9 +707,7 @@
         let chartInstance = null;
         let weekdayChartInstance = null;
         
-        // 【新規】時間粒度（集計単位）の4分類: 'day'(1日), 'week'(1週間), 'halfMonth'(半月), 'month'(1ヶ月)
         let selectedGranularity = 'day';
-        
         let selectedWeekdayFilter = 'all';
         let selectedTablePeriod = 30;
         let selectedTableWeekday = 'all';
@@ -664,16 +715,17 @@
         let selectedViewMode = 'both';
         let chartOffsetDays = 0;
 
-        // 移動平均の指定: null(非表示), 'ma3'(3日), 'ma7'(7日), 'auto'(各分類固定)
+        // 【新規】各種統計ラインのオン/オフ状態管理
+        let showMinMax = true;      // 最大・最小ライン
+        let showAverage = true;     // 平均ライン
         let activeMovingAverage = null;
         let showStdDevBand = false;
 
         const weekNames = ['日', '月', '火', '水', '木', '金', '土'];
         
-        // 【配色改善】全要素が明確に分離して見えるプレミアム・ハイコントラスト配色
-        const defaultBarColor = 'rgba(99, 102, 241, 0.65)';  // 体重: インディゴ
+        const defaultBarColor = 'rgba(99, 102, 241, 0.65)';
         const defaultBarBorder = 'rgb(79, 70, 229)';
-        const highlightBarColor = 'rgba(245, 158, 11, 0.95)'; // ハイライト: アンバーオレンジ
+        const highlightBarColor = 'rgba(245, 158, 11, 0.95)';
         const dimmedBarColor = 'rgba(99, 102, 241, 0.2)';
 
         window.addEventListener('DOMContentLoaded', async () => {
@@ -687,7 +739,7 @@
             await initPyodide();
         });
 
-        // スマホ画面の向き（縦/横）の変更監視と自動ワイド化
+        // 画面の向きの変更監視と自動ワイド化
         function setupOrientationListener() {
             const handleResize = () => {
                 const isLandscape = window.innerWidth > window.innerHeight;
@@ -695,7 +747,6 @@
                 if (hint) {
                     hint.innerText = isLandscape ? "ワイド表示中 (パノラマ)" : "📱 横に倒すとワイド表示";
                 }
-                // 表示件数を横画面に合わせて自動再計算して再描画
                 renderTableAndChart();
             };
 
@@ -716,7 +767,7 @@
                 if (selectedGranularity === 'day') return width / 14;
                 if (selectedGranularity === 'week') return width / 8;
                 if (selectedGranularity === 'halfMonth') return width / 8;
-                return width / 6; // month
+                return width / 6;
             };
 
             const handleTouchStart = (e) => {
@@ -762,9 +813,9 @@
             window.addEventListener('mouseup', handleTouchEnd);
         }
 
-        // 【新機能】時間粒度（4分類）の切り替え
+        // 時間粒度（4分類）の切り替え
         function changeGranularity(granularity) {
-            chartOffsetDays = 0; // シフト位置をリセット
+            chartOffsetDays = 0;
             selectedGranularity = granularity;
             
             ['day', 'week', 'halfMonth', 'month'].forEach(g => {
@@ -773,7 +824,6 @@
                 else btn.classList.remove('active');
             });
 
-            // 「1日」の場合と、それ以外での移動平均ボタンの表示切り替え
             const btnMa3 = document.getElementById('btn-toggle-ma3');
             const btnMa7 = document.getElementById('btn-toggle-ma7');
             const btnMaAuto = document.getElementById('btn-toggle-ma-auto');
@@ -782,47 +832,64 @@
                 btnMa3.classList.remove('hidden');
                 btnMa7.classList.remove('hidden');
                 btnMaAuto.classList.add('hidden');
-                if (activeMovingAverage === 'auto') activeMovingAverage = 'ma7'; // 1日時は7日MAをデフォルトに
+                if (activeMovingAverage === 'auto') activeMovingAverage = 'ma7';
             } else {
                 btnMa3.classList.add('hidden');
                 btnMa7.classList.add('hidden');
                 btnMaAuto.classList.remove('hidden');
                 if (activeMovingAverage === 'ma3' || activeMovingAverage === 'ma7') activeMovingAverage = 'auto';
                 
-                // ボタンテキストを分かりやすく設定
                 if (granularity === 'week') btnMaAuto.innerText = "📈 3週平均";
                 else if (granularity === 'halfMonth') btnMaAuto.innerText = "📈 1月半平均";
                 else if (granularity === 'month') btnMaAuto.innerText = "📈 3ヶ月平均";
             }
 
-            updateMAButtonStyles();
+            updateStatButtonStyles();
+            renderTableAndChart();
+        }
+
+        // 【新規】最大最小ラインのトグル
+        function toggleMinMax() {
+            showMinMax = !showMinMax;
+            updateStatButtonStyles();
+            renderTableAndChart();
+        }
+
+        // 【新規】平均ラインのトグル
+        function toggleAverage() {
+            showAverage = !showAverage;
+            updateStatButtonStyles();
             renderTableAndChart();
         }
 
         function toggleMovingAverage(type) {
             if (activeMovingAverage === type) {
-                activeMovingAverage = null; // 解除
+                activeMovingAverage = null;
             } else {
                 activeMovingAverage = type;
             }
-            updateMAButtonStyles();
+            updateStatButtonStyles();
             renderTableAndChart();
-        }
-
-        function updateMAButtonStyles() {
-            const btnMa3 = document.getElementById('btn-toggle-ma3');
-            const btnMa7 = document.getElementById('btn-toggle-ma7');
-            const btnMaAuto = document.getElementById('btn-toggle-ma-auto');
-
-            btnMa3.classList.toggle('active', activeMovingAverage === 'ma3');
-            btnMa7.classList.toggle('active', activeMovingAverage === 'ma7');
-            btnMaAuto.classList.toggle('active', activeMovingAverage === 'auto');
         }
 
         function toggleStdDevBand() {
             showStdDevBand = !showStdDevBand;
-            document.getElementById('btn-toggle-sd').classList.toggle('active', showStdDevBand);
+            updateStatButtonStyles();
             renderTableAndChart();
+        }
+
+        function updateStatButtonStyles() {
+            document.getElementById('btn-toggle-minmax').classList.toggle('active-red', showMinMax);
+            document.getElementById('btn-toggle-avg').classList.toggle('active', showAverage);
+            document.getElementById('btn-toggle-sd').classList.toggle('active-amber', showStdDevBand);
+
+            const btnMa3 = document.getElementById('btn-toggle-ma3');
+            const btnMa7 = document.getElementById('btn-toggle-ma7');
+            const btnMaAuto = document.getElementById('btn-toggle-ma-auto');
+
+            btnMa3.classList.toggle('active-magenta', activeMovingAverage === 'ma3');
+            btnMa7.classList.toggle('active-magenta', activeMovingAverage === 'ma7');
+            btnMaAuto.classList.toggle('active-magenta', activeMovingAverage === 'auto');
         }
 
         function changeViewMode(mode) {
@@ -1491,7 +1558,7 @@
             }
         }
 
-        // 【新設計】4分類の時間粒度 ＆ 縦横画面連動のデータ生成ロジック
+        // 時系列推移データ作成コア関数
         function buildChartDataPayload() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             const recordMap = {};
@@ -1509,7 +1576,6 @@
             const targetDayIdx = selectedWeekdayFilter === 'all' ? null : parseInt(selectedWeekdayFilter);
             const isLandscape = window.innerWidth > window.innerHeight;
 
-            // 1. 「1日」分類 (縦画面: 14日分, 横画面: 35日分)
             if (selectedGranularity === 'day') {
                 const displayCount = isLandscape ? 35 : 14;
 
@@ -1553,7 +1619,6 @@
                     cur.setDate(cur.getDate() + 1);
                 }
 
-            // 2. 「1週間」分類 (日曜日起点。縦画面: 8週分, 横画面: 18週分)
             } else if (selectedGranularity === 'week') {
                 const weeksCount = isLandscape ? 18 : 8;
 
@@ -1596,7 +1661,6 @@
                     barColors.push(defaultBarColor);
                 }
 
-            // 3. 「半月」分類 (1〜15日/16日〜末。縦画面: 8半月(4ヶ月)分, 横画面: 16半月(8ヶ月)分)
             } else if (selectedGranularity === 'halfMonth') {
                 const halfMonthCount = isLandscape ? 16 : 8;
 
@@ -1641,7 +1705,6 @@
                     barColors.push(defaultBarColor);
                 });
 
-            // 4. 「1ヶ月」分類 (毎月1日〜末。縦画面: 6ヶ月分, 横画面: 14ヶ月分)
             } else {
                 const monthsCount = isLandscape ? 14 : 6;
 
@@ -1673,7 +1736,7 @@
             return { chartLabels, chartWeights, chartWaists, barColors, rangeTitleStr };
         }
 
-        // 表示用データセット生成関数（新配色・移動平均・標準偏差バンド対応）
+        // 表示用データセット生成関数 (トグル連動 ＆ 濃いアンバー偏差バンド)
         function buildDatasets(chartLabels, chartWeights, chartWaists, barColors) {
             const activeRangeWeights = chartWeights.filter(v => v !== null && v !== undefined && !isNaN(v));
             const activeRangeWaists = chartWaists.filter(v => v !== null && v !== undefined && !isNaN(v));
@@ -1686,7 +1749,7 @@
             const statYAxisID = isTargetWaist ? 'y-waist' : 'y-weight';
             const statUnit = isTargetWaist ? 'cm' : 'kg';
 
-            // 1. 【配色刷新】標準偏差バンド (±1σ): 青や緑と絶対に被らない「ウォームアンバー帯」
+            // 1. 【改修】標準偏差バンド (±1σ): より濃く視認しやすいアンバー帯
             if (showStdDevBand && statData.length >= 2) {
                 const mean = statData.reduce((a, b) => a + b, 0) / statData.length;
                 const variance = statData.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / statData.length;
@@ -1700,12 +1763,12 @@
                     type: 'line',
                     label: `+1σ 上限 (${upperVal}${statUnit})`,
                     data: chartLabels.map(() => upperVal),
-                    borderColor: 'rgba(245, 158, 11, 0.45)', // アンバー破線
+                    borderColor: 'rgba(217, 119, 6, 0.7)', // 濃いアンバー境界線
                     borderWidth: 1.2,
                     borderDash: [3, 3],
                     pointRadius: 0,
                     fill: '+1',
-                    backgroundColor: 'rgba(251, 191, 36, 0.12)', // 暖かみのあるウォームアンバーの帯
+                    backgroundColor: 'rgba(245, 158, 11, 0.24)', // より濃いウォームアンバー帯
                     yAxisID: statYAxisID,
                     order: 5
                 });
@@ -1715,7 +1778,7 @@
                     type: 'line',
                     label: `-1σ 下限 (${lowerVal}${statUnit})`,
                     data: chartLabels.map(() => lowerVal),
-                    borderColor: 'rgba(245, 158, 11, 0.45)',
+                    borderColor: 'rgba(217, 119, 6, 0.7)',
                     borderWidth: 1.2,
                     borderDash: [3, 3],
                     pointRadius: 0,
@@ -1725,7 +1788,7 @@
                 });
             }
 
-            // 2. 体重バー (インディゴ)
+            // 2. 体重バー
             if (selectedViewMode === 'both' || selectedViewMode === 'weight') {
                 datasets.push({
                     type: 'bar',
@@ -1740,7 +1803,7 @@
                 });
             }
 
-            // 3. ウエストライン (エメラルドグリーン)
+            // 3. ウエストライン
             if (selectedViewMode === 'both' || selectedViewMode === 'waist') {
                 datasets.push({
                     type: 'line',
@@ -1759,7 +1822,7 @@
                 });
             }
 
-            // 4. 【配色刷新＆新仕様】移動平均線: 鮮烈なビビッド・マゼンタ（赤紫）
+            // 4. 移動平均線 (マゼンタ)
             if (activeMovingAverage !== null && rawSeries.length > 0) {
                 let windowSize = 7;
                 let maLabelText = "移動平均";
@@ -1773,13 +1836,13 @@
                         maLabelText = "7日移動平均";
                     }
                 } else if (selectedGranularity === 'week') {
-                    windowSize = 3; // 3週(21日)平均
+                    windowSize = 3;
                     maLabelText = "3週移動平均";
                 } else if (selectedGranularity === 'halfMonth') {
-                    windowSize = 3; // 3半月(1.5ヶ月)平均
+                    windowSize = 3;
                     maLabelText = "1月半移動平均";
                 } else {
-                    windowSize = 3; // 3ヶ月平均
+                    windowSize = 3;
                     maLabelText = "3ヶ月移動平均";
                 }
 
@@ -1804,7 +1867,7 @@
                     type: 'line',
                     label: maLabelText,
                     data: maData,
-                    borderColor: 'rgb(192, 38, 211)', // 鮮やかなマゼンタ（青や緑から最も離れた高視認色）
+                    borderColor: 'rgb(192, 38, 211)',
                     borderWidth: 2.5,
                     pointRadius: 0,
                     fill: false,
@@ -1815,21 +1878,15 @@
                 });
             }
 
-            // 5. 【配色刷新】基準線（最大・最小・平均）
-            if (statData.length > 0) {
+            // 5. 【改修】最大・最小ライン（トグル切り替え対応）
+            if (showMinMax && statData.length > 0) {
                 const maxVal = Math.max(...statData);
                 const minVal = Math.min(...statData);
-                const avgVal = Math.round((statData.reduce((a, b) => a + b, 0) / statData.length) * 10) / 10;
 
-                const maxLineData = chartLabels.map(() => maxVal);
-                const minLineData = chartLabels.map(() => minVal);
-                const avgLineData = chartLabels.map(() => avgVal);
-
-                // 最大値 (クリムゾンレッド破線)
                 datasets.push({
                     type: 'line',
                     label: `最大 (${maxVal}${statUnit})`,
-                    data: maxLineData,
+                    data: chartLabels.map(() => maxVal),
                     borderColor: 'rgba(225, 29, 72, 0.85)',
                     borderWidth: 1.5,
                     borderDash: [4, 4],
@@ -1839,11 +1896,10 @@
                     order: 1
                 });
 
-                // 最小値 (同じくクリムゾンレッド破線)
                 datasets.push({
                     type: 'line',
                     label: `最小 (${minVal}${statUnit})`,
-                    data: minLineData,
+                    data: chartLabels.map(() => minVal),
                     borderColor: 'rgba(225, 29, 72, 0.85)',
                     borderWidth: 1.5,
                     borderDash: [4, 4],
@@ -1852,12 +1908,16 @@
                     yAxisID: statYAxisID,
                     order: 1
                 });
+            }
 
-                // 平均値 (スレートチャコール破線: 最大・最小・偏差バンドとも完全に差別化)
+            // 6. 【改修】平均ライン（トグル切り替え対応）
+            if (showAverage && statData.length > 0) {
+                const avgVal = Math.round((statData.reduce((a, b) => a + b, 0) / statData.length) * 10) / 10;
+
                 datasets.push({
                     type: 'line',
                     label: `平均 (${avgVal}${statUnit})`,
-                    data: avgLineData,
+                    data: chartLabels.map(() => avgVal),
                     borderColor: 'rgba(71, 85, 105, 0.85)',
                     borderWidth: 1.5,
                     borderDash: [6, 3],
@@ -1871,7 +1931,7 @@
             return datasets;
         }
 
-        // 超軽量インプレース更新処理 (ドラッグ中60fps実行)
+        // 超軽量インプレース更新処理
         function updateChartInPlace() {
             if (!chartInstance) {
                 renderTableAndChart();
@@ -1944,7 +2004,6 @@
             const weightDiff = weightMax - weightMin;
             const waistDiff = waistMax - waistMin;
 
-            // 体重のみ時1kg刻み、ウエストのみ時1cm刻み
             let wStepSize = weightDiff < 10 ? 0.5 : 1.0;
             let wAutoSkip = weightDiff < 10 ? false : true;
 
@@ -2009,6 +2068,7 @@
                 }
             });
 
+            updateStatButtonStyles();
             renderWeekdayChart();
             renderWeekdayTable();
         }
