@@ -230,7 +230,6 @@
             color: white;
         }
 
-        /* 表示切り替えトグル専用スタイル */
         .btn-view-toggle {
             padding: 0.35rem 0.85rem;
             font-size: 11px;
@@ -249,10 +248,10 @@
             border-color: #334155;
         }
 
-        /* グラフ描画領域 (縦幅を220pxから300pxに大幅拡張してメモリ潰れを解消) */
+        /* グラフ描画領域 (縦幅を520pxへ大幅拡張してメモリの見やすさを極限まで高める) */
         .chart-container {
             width: 100%;
-            height: 300px;
+            height: 520px;
             position: relative;
             user-select: none;
             touch-action: pan-y;
@@ -435,7 +434,7 @@
                 <button type="button" onclick="changePeriod(365)" id="btn-365" class="btn-period">365日</button>
             </div>
 
-            <!-- 【新規実装】両方 / 体重のみ / ウエストのみ 切り替えトグルボタン -->
+            <!-- 表示項目切り替えトグルボタン -->
             <div style="display: flex; gap: 0.4rem; margin-bottom: 0.75rem;">
                 <button type="button" onclick="changeViewMode('both')" id="btn-vm-both" class="btn-view-toggle active">両方</button>
                 <button type="button" onclick="changeViewMode('weight')" id="btn-vm-weight" class="btn-view-toggle">体重のみ</button>
@@ -614,9 +613,7 @@
         let selectedTablePeriod = 30;
         let selectedTableWeekday = 'all';
 
-        // 【新規】表示モード切り替え（both: 両方, weight: 体重のみ, waist: ウエストのみ）
         let selectedViewMode = 'both';
-
         let chartOffsetDays = 0;
 
         const weekNames = ['日', '月', '火', '水', '木', '金', '土'];
@@ -635,7 +632,7 @@
             await initPyodide();
         });
 
-        // タッチスライドロジック
+        // iPhone/Safari/PCでの白飛び・カクつきを完全排除した高速ドラッグスライドロジック
         function setupSeamlessSwipeGesture() {
             const wrapper = document.getElementById('main-chart-wrapper');
             let startX = 0;
@@ -673,13 +670,18 @@
 
                     if (newOffset >= 0 && newOffset !== chartOffsetDays) {
                         chartOffsetDays = newOffset;
-                        renderTableAndChart();
+                        // Canvasを再生成せず、データ配列のみを超軽量インプレース更新（60fpsヌルヌル動作）
+                        updateChartInPlace();
                     }
                 }
             };
 
             const handleTouchEnd = () => {
-                isDragging = false;
+                if (isDragging) {
+                    isDragging = false;
+                    // ドラッグ完了後に一度だけテーブル類の整合性を同期
+                    renderWeekdayTable();
+                }
             };
 
             wrapper.addEventListener('touchstart', handleTouchStart, { passive: true });
@@ -691,7 +693,7 @@
             window.addEventListener('mouseup', handleTouchEnd);
         }
 
-        // 表示モード切り替え（両方 / 体重のみ / ウエストのみ）
+        // 表示モード切り替え
         function changeViewMode(mode) {
             selectedViewMode = mode;
             ['both', 'weight', 'waist'].forEach(m => {
@@ -1516,7 +1518,121 @@
             return { chartLabels, chartWeights, chartWaists, barColors, rangeTitleStr };
         }
 
-        // 時系列推移メイングラフと過去履歴
+        // 表示用データセット生成関数（基準線・体重・ウエスト）
+        function buildDatasets(chartLabels, chartWeights, chartWaists, barColors) {
+            const activeRangeWeights = chartWeights.filter(v => v !== null && v !== undefined && !isNaN(v));
+            const activeRangeWaists = chartWaists.filter(v => v !== null && v !== undefined && !isNaN(v));
+
+            const datasets = [];
+
+            // 体重バー
+            if (selectedViewMode === 'both' || selectedViewMode === 'weight') {
+                datasets.push({
+                    type: 'bar',
+                    label: '体重 (kg)',
+                    data: chartWeights,
+                    borderColor: defaultBarBorder,
+                    backgroundColor: barColors,
+                    yAxisID: 'y-weight',
+                    barThickness: 'flex',
+                    maxBarThickness: 14,
+                    order: 3
+                });
+            }
+
+            // ウエストライン
+            if (selectedViewMode === 'both' || selectedViewMode === 'waist') {
+                datasets.push({
+                    type: 'line',
+                    label: 'ウエスト (cm)',
+                    data: chartWaists,
+                    borderColor: 'rgb(16, 185, 129)',
+                    backgroundColor: 'transparent',
+                    yAxisID: 'y-waist',
+                    tension: 0,
+                    fill: false,
+                    spanGaps: true,
+                    order: 2
+                });
+            }
+
+            // 基準線（最大・最小・平均）
+            const isTargetWaist = selectedViewMode === 'waist';
+            const statData = isTargetWaist ? activeRangeWaists : activeRangeWeights;
+            const statYAxisID = isTargetWaist ? 'y-waist' : 'y-weight';
+            const statUnit = isTargetWaist ? 'cm' : 'kg';
+
+            if (statData.length > 0) {
+                const maxVal = Math.max(...statData);
+                const minVal = Math.min(...statData);
+                const avgVal = Math.round((statData.reduce((a, b) => a + b, 0) / statData.length) * 10) / 10;
+
+                const maxLineData = chartLabels.map(() => maxVal);
+                const minLineData = chartLabels.map(() => minVal);
+                const avgLineData = chartLabels.map(() => avgVal);
+
+                datasets.push({
+                    type: 'line',
+                    label: `最大 (${maxVal}${statUnit})`,
+                    data: maxLineData,
+                    borderColor: 'rgba(244, 63, 94, 0.85)',
+                    borderWidth: 1.5,
+                    borderDash: [4, 4],
+                    pointRadius: 0,
+                    fill: false,
+                    yAxisID: statYAxisID,
+                    order: 1
+                });
+
+                datasets.push({
+                    type: 'line',
+                    label: `最小 (${minVal}${statUnit})`,
+                    data: minLineData,
+                    borderColor: 'rgba(244, 63, 94, 0.85)',
+                    borderWidth: 1.5,
+                    borderDash: [4, 4],
+                    pointRadius: 0,
+                    fill: false,
+                    yAxisID: statYAxisID,
+                    order: 1
+                });
+
+                datasets.push({
+                    type: 'line',
+                    label: `平均 (${avgVal}${statUnit})`,
+                    data: avgLineData,
+                    borderColor: 'rgba(245, 158, 11, 0.95)',
+                    borderWidth: 1.5,
+                    borderDash: [6, 3],
+                    pointRadius: 0,
+                    fill: false,
+                    yAxisID: statYAxisID,
+                    order: 1
+                });
+            }
+
+            return datasets;
+        }
+
+        // iPhone/PC用の超軽量インプレース更新処理 (ドラッグ中リアルタイム実行)
+        function updateChartInPlace() {
+            if (!chartInstance) {
+                renderTableAndChart();
+                return;
+            }
+
+            const { chartLabels, chartWeights, chartWaists, barColors, rangeTitleStr } = buildChartDataPayload();
+            document.getElementById('chart-range-text').innerText = `範囲: ${rangeTitleStr}`;
+
+            // Canvasを壊さず、データセットとラベルのみを置換
+            chartInstance.data.labels = chartLabels;
+            chartInstance.data.datasets = buildDatasets(chartLabels, chartWeights, chartWaists, barColors);
+
+            // アニメーションなしで即時描画（白飛びやチラつきが100%消失します）
+            chartInstance.update('none');
+        }
+
+        // 時系列推移メイングラフのフル再構築（初期化、期間切り替え、スケール変更時）
         function renderTableAndChart() {
             const records = JSON.parse(localStorage.getItem('wt_records') || '[]');
             const targetDayIdx = selectedWeekdayFilter === 'all' ? null : parseInt(selectedWeekdayFilter);
@@ -1549,14 +1665,13 @@
             });
 
             const { chartLabels, chartWeights, chartWaists, barColors, rangeTitleStr } = buildChartDataPayload();
-
             document.getElementById('chart-range-text').innerText = `範囲: ${rangeTitleStr}`;
 
             if (chartInstance) {
                 chartInstance.destroy();
             }
 
-            // スケール計算用の有効データ
+            // スケール計算
             const allWeights = records.map(r => r.weight).filter(v => v !== null && v !== undefined && !isNaN(v));
             const allWaists = records.map(r => r.waist).filter(v => v !== null && v !== undefined && !isNaN(v));
 
@@ -1576,104 +1691,20 @@
             const weightDiff = weightMax - weightMin;
             const waistDiff = waistMax - waistMin;
 
-            // 【新規実装】画面表示範囲内の 最大値・最小値・平均値 の計算
-            const activeRangeWeights = chartWeights.filter(v => v !== null && v !== undefined && !isNaN(v));
-            const activeRangeWaists = chartWaists.filter(v => v !== null && v !== undefined && !isNaN(v));
+            // 【補助線・目盛りの条件分岐制御】
+            // 体重のみ ➡️ 1.0kg刻み, ウエストのみ ➡️ 1.0cm刻み, 両方 ➡️ 従来バランス
+            let wStepSize = weightDiff < 10 ? 0.5 : 1.0;
+            let wAutoSkip = weightDiff < 10 ? false : true;
 
-            const hasWeights = activeRangeWeights.length > 0;
-            const hasWaists = activeRangeWaists.length > 0;
+            let aStepSize = waistDiff < 15 ? 1.0 : 2.0;
+            let aAutoSkip = true;
 
-            // 表示モード（both / weight / waist）に合わせてデータセットを動的生成
-            const datasets = [];
-
-            // 1. 体重データセット (bar)
-            if (selectedViewMode === 'both' || selectedViewMode === 'weight') {
-                datasets.push({
-                    type: 'bar',
-                    label: '体重 (kg)',
-                    data: chartWeights,
-                    borderColor: defaultBarBorder,
-                    backgroundColor: barColors,
-                    yAxisID: 'y-weight',
-                    barThickness: 'flex',
-                    maxBarThickness: 14,
-                    order: 3
-                });
-            }
-
-            // 2. ウエストデータセット (line)
-            if (selectedViewMode === 'both' || selectedViewMode === 'waist') {
-                datasets.push({
-                    type: 'line',
-                    label: 'ウエスト (cm)',
-                    data: chartWaists,
-                    borderColor: 'rgb(16, 185, 129)',
-                    backgroundColor: 'transparent',
-                    yAxisID: 'y-waist',
-                    tension: 0,
-                    fill: false,
-                    spanGaps: true,
-                    order: 2
-                });
-            }
-
-            // 3. 基準線の追加（最大値・最小値は同じローズ色、平均値は別色のアンバー色）
-            // 基準とするデータ（ウエストのみモードならウエスト、それ以外は体重を基準）
-            const isTargetWaist = selectedViewMode === 'waist';
-            const statData = isTargetWaist ? activeRangeWaists : activeRangeWeights;
-            const statYAxisID = isTargetWaist ? 'y-waist' : 'y-weight';
-            const statUnit = isTargetWaist ? 'cm' : 'kg';
-
-            if (statData.length > 0) {
-                const maxVal = Math.max(...statData);
-                const minVal = Math.min(...statData);
-                const avgVal = Math.round((statData.reduce((a, b) => a + b, 0) / statData.length) * 10) / 10;
-
-                const maxLineData = chartLabels.map(() => maxVal);
-                const minLineData = chartLabels.map(() => minVal);
-                const avgLineData = chartLabels.map(() => avgVal);
-
-                // 最大値（ローズ破線）
-                datasets.push({
-                    type: 'line',
-                    label: `最大 (${maxVal}${statUnit})`,
-                    data: maxLineData,
-                    borderColor: 'rgba(244, 63, 94, 0.85)', // ローズ
-                    borderWidth: 1.5,
-                    borderDash: [4, 4],
-                    pointRadius: 0,
-                    fill: false,
-                    yAxisID: statYAxisID,
-                    order: 1
-                });
-
-                // 最小値（ローズ破線：最大値と同じ色）
-                datasets.push({
-                    type: 'line',
-                    label: `最小 (${minVal}${statUnit})`,
-                    data: minLineData,
-                    borderColor: 'rgba(244, 63, 94, 0.85)', // ローズ（同じ色）
-                    borderWidth: 1.5,
-                    borderDash: [4, 4],
-                    pointRadius: 0,
-                    fill: false,
-                    yAxisID: statYAxisID,
-                    order: 1
-                });
-
-                // 平均値（アンバー破線：最大・最小とは別色）
-                datasets.push({
-                    type: 'line',
-                    label: `平均 (${avgVal}${statUnit})`,
-                    data: avgLineData,
-                    borderColor: 'rgba(245, 158, 11, 0.95)', // アンバー
-                    borderWidth: 1.5,
-                    borderDash: [6, 3],
-                    pointRadius: 0,
-                    fill: false,
-                    yAxisID: statYAxisID,
-                    order: 1
-                });
+            if (selectedViewMode === 'weight') {
+                wStepSize = 1.0;
+                wAutoSkip = false; // 1kg刻みで漏れなく補助線を引く
+            } else if (selectedViewMode === 'waist') {
+                aStepSize = 1.0;
+                aAutoSkip = false; // 1cm刻みで漏れなく補助線を引く
             }
 
             const ctx = document.getElementById('weightChart').getContext('2d');
@@ -1682,7 +1713,7 @@
                 type: 'bar',
                 data: {
                     labels: chartLabels,
-                    datasets: datasets
+                    datasets: buildDatasets(chartLabels, chartWeights, chartWaists, barColors)
                 },
                 options: {
                     responsive: true,
@@ -1691,28 +1722,36 @@
                         'y-weight': {
                             type: 'linear',
                             position: 'left',
-                            display: (selectedViewMode === 'both' || selectedViewMode === 'weight'), // モードに合わせて表示・非表示
+                            display: (selectedViewMode === 'both' || selectedViewMode === 'weight'),
                             title: { display: true, text: '体重 (kg)', color: 'rgb(79, 70, 229)', font: { weight: 'bold' } },
-                            grid: { drawOnChartArea: true, color: 'rgba(0, 0, 0, 0.05)' },
+                            grid: { 
+                                drawOnChartArea: true, 
+                                color: 'rgba(0, 0, 0, 0.06)' 
+                            },
                             beginAtZero: false,
                             min: weightMin,
                             max: weightMax,
                             ticks: {
-                                stepSize: weightDiff < 10 ? 0.5 : 1.0,
-                                autoSkip: weightDiff < 10 ? false : true
+                                stepSize: wStepSize,
+                                autoSkip: wAutoSkip
                             }
                         },
                         'y-waist': {
                             type: 'linear',
                             position: 'right',
-                            display: (selectedViewMode === 'both' || selectedViewMode === 'waist'), // モードに合わせて表示・非表示
+                            display: (selectedViewMode === 'both' || selectedViewMode === 'waist'),
                             title: { display: true, text: 'ウエスト (cm)', color: 'rgb(16, 185, 129)', font: { weight: 'bold' } },
-                            grid: { drawOnChartArea: false },
+                            // ウエストのみ表示時は右軸から補助線を引く！
+                            grid: { 
+                                drawOnChartArea: (selectedViewMode === 'waist'), 
+                                color: 'rgba(0, 0, 0, 0.06)' 
+                            },
                             beginAtZero: false,
                             min: waistMin,
                             max: waistMax,
                             ticks: {
-                                stepSize: waistDiff < 15 ? 1.0 : 2.0
+                                stepSize: aStepSize,
+                                autoSkip: aAutoSkip
                             }
                         }
                     }
